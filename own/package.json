@@ -3,12 +3,128 @@
   "version": "0.1.0-next.0",
   "description": "Managed PhotoCraft desktop, CLI and MCP image editing for Agents",
   "type": "module",
-  "bin": {"photocraft-own": "bin/photocraft-own.mjs"},
-  "files": ["bin", "lib", "skills", "capabilities.json", "release.json", "README.md", "LICENSE", "NOTICE"],
-  "engines": {"node": ">=22"},
+  "bin": {
+    "photocraft-own": "bin/photocraft-own.mjs"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "skills",
+    "capabilities.json",
+    "release.json",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "license": "MIT",
-  "publishConfig": {"access": "public"},
-  "repository": {"type": "git", "url": "git+https://github.com/petercjl/photocraft-own.git", "directory": "own"},
-  "scripts": {"test": "node --test test/*.test.mjs", "check": "node --check bin/photocraft-own.mjs && node --check lib/runtime.mjs && node --check lib/skills.mjs", "build:runtime": "node ci/build.mjs", "smoke": "node ci/smoke.mjs"},
-  "dependencies": {"tar": "7.5.22", "semver": "7.8.5"}
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/petercjl/photocraft-own.git",
+    "directory": "own"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check bin/photocraft-own.mjs && node --check lib/runtime.mjs && node --check lib/skills.mjs",
+    "build:runtime": "node ci/build.mjs",
+    "smoke": "node ci/smoke.mjs"
+  },
+  "dependencies": {
+    "tar": "7.5.22",
+    "semver": "7.8.5"
+  },
+  "photocraftOwnManifest": {
+    "schema": 1,
+    "package": "@petercjl/photocraft-own",
+    "version": "0.1.0",
+    "platforms": {
+      "win32-x64": {
+        "identity": "dev.petercjl.photocraft-own",
+        "contract": 1,
+        "upstreamVersion": "0.8.2",
+        "upstreamCommit": "706638b2842a330cfc5c305c7860d0b7c9921960",
+        "buildCommit": "f23c647ed4d3347ee11b96878fa688746d45ac21",
+        "features": [
+          "heif",
+          "own"
+        ],
+        "developmentBuild": false,
+        "signing": "unsigned",
+        "executables": {
+          "cli": {
+            "path": "bin/photocraft-cli.exe",
+            "sha256": "6197f94773c463a15b72145f63ae25440afbe43f5fb47eb4ebb42a42a681019c"
+          },
+          "desktop": {
+            "path": "desktop/photocraft-own.exe",
+            "sha256": "ced14aaa31e6b99ca6501b7c0ae704a547495f2168dde2693cd16a8d2aad2191"
+          }
+        },
+        "assets": {
+          "cli": {
+            "filename": "photocraft-own-0.1.0-win32-x64-cli.tgz",
+            "size": 20874222,
+            "sha256": "1b8627eb263b51f97f332568084211b39ffa96a2f7e86153c758bd6bcb9c737a",
+            "url": "https://registry.npmjs.org/@petercjl/photocraft-own/-/photocraft-own-0.0.0-payload.h1b8627eb263b51f97f332568084211b39ffa96a2f7e86153c758bd6bcb9c737a.tgz",
+            "transportSize": 20861997,
+            "transportSha256": "07628ea6576788cd32a129cab4c11b3da094dace47119d19c37dfdbf7a9ff456"
+          },
+          "desktop": {
+            "filename": "photocraft-own-0.1.0-win32-x64-desktop.tgz",
+            "size": 32722028,
+            "sha256": "18dcd8de394dee9c266063dae1ce3e1ecf40d4c26811b576158e583a05fa16ef",
+            "url": "https://registry.npmjs.org/@petercjl/photocraft-own/-/photocraft-own-0.0.0-payload.h18dcd8de394dee9c266063dae1ce3e1ecf40d4c26811b576158e583a05fa16ef.tgz",
+            "transportSize": 32702294,
+            "transportSha256": "c1326cb854be388b0e0a345008851976a3ccfaac769f61bf1b3deb34ca1a028f"
+          }
+        }
+      },
+      "darwin-arm64": {
+        "identity": "dev.petercjl.photocraft-own",
+        "contract": 1,
+        "upstreamVersion": "0.8.2",
+        "upstreamCommit": "706638b2842a330cfc5c305c7860d0b7c9921960",
+        "buildCommit": "f23c647ed4d3347ee11b96878fa688746d45ac21",
+        "features": [
+          "heif",
+          "own"
+        ],
+        "developmentBuild": false,
+        "signing": "ad-hoc",
+        "executables": {
+          "cli": {
+            "path": "bin/photocraft-cli",
+            "sha256": "71ba71266a1604a7f274594a20c1ae72cb566ead6ea8b9220dac1318c8326224"
+          },
+          "desktop": {
+            "path": "PhotoCraft Own.app/Contents/MacOS/PhotoCraft Own",
+            "sha256": "ba7a823b1fb877046059dae9499cdfdd0f0081c871c3fb1efd4e3e13c03f2878"
+          }
+        },
+        "assets": {
+          "cli": {
+            "filename": "photocraft-own-0.1.0-darwin-arm64-cli.tgz",
+            "size": 18920600,
+            "sha256": "c7fd58e6efc6b2e358fb6fe11bdfe7301a94ff6fe09c31dc7c9a934a09e24edb",
+            "url": "https://registry.npmjs.org/@petercjl/photocraft-own/-/photocraft-own-0.0.0-payload.hc7fd58e6efc6b2e358fb6fe11bdfe7301a94ff6fe09c31dc7c9a934a09e24edb.tgz",
+            "transportSize": 18906752,
+            "transportSha256": "5cedcbbe462d7509767d930cfe5675bf878e5fed33b519b7e2f765ad73205d3e"
+          },
+          "desktop": {
+            "filename": "photocraft-own-0.1.0-darwin-arm64-desktop.tgz",
+            "size": 30427742,
+            "sha256": "cdf885e3923639ee326128d1633884ed0565e22a8af1f779a653210895ec8d93",
+            "url": "https://registry.npmjs.org/@petercjl/photocraft-own/-/photocraft-own-0.0.0-payload.hcdf885e3923639ee326128d1633884ed0565e22a8af1f779a653210895ec8d93.tgz",
+            "transportSize": 30409924,
+            "transportSha256": "7401f225a6a444d5f20da73cb082ea86dbfbd601279ff627390ae492c8fd7bf5"
+          }
+        }
+      }
+    }
+  }
 }
