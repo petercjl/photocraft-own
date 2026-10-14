@@ -27,6 +27,6 @@ MCP/serve stdout is reserved for the native protocol; manager errors go to stder
 
 ## QA and evolution
 
-Verify through the real CLI entry point; schema compatibility alone is not runtime evidence. macOS Apple Silicon has local build/integration coverage; Windows x64 and SealSeek adapters are implemented pending runtime verification. Clean-context regression has not run. Report this honestly when relevant.
+Verify through the real CLI entry point; schema compatibility alone is not runtime evidence. macOS Apple Silicon and Windows x64 have native distribution, installation, CLI/MCP image-editing and lifecycle integration coverage. The macOS desktop has been visually inspected. Windows desktop interaction, live SealSeek invocation and clean-context regression remain unverified. Report OS execution evidence separately from Agent-host evidence.
 
 Keep application-specific image strategies outside this capability Skill. Add recurring atomic operations to the stable CLI contract with validation and recovery tests.

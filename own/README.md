@@ -16,8 +16,10 @@ Troubleshooting: “请检查 PhotoCraft Own 的安装和运行状态。”
 
 Local operations need no service login. AI services, external fonts, and their licenses are separate. Installation grants no file access or service access. MCP sessions explicitly scope input and output directories. Existing images are preserved unless their replacement is explicitly authorized.
 
-## Development status
+## Verification and desktop signing
 
-This is an unpublished prerelease under development. macOS native builds and local integration tests are being validated. Windows and SealSeek remain pending runtime verification. Developer builds are ad-hoc signed on macOS; notarization and Windows signing remain release prerequisites for frictionless public desktop distribution.
+macOS Apple Silicon and Windows x64 have passed native builds, installation, CLI image editing, MCP, update/rollback, and packed npm entry checks. The macOS desktop has also been visually inspected. Windows desktop interaction and live SealSeek conversation invocation remain unverified.
+
+The macOS desktop is ad-hoc signed and is not notarized. The Windows desktop is unsigned. These signing limitations may require operating-system confirmation when launching the desktop.
 
 Development and distribution instructions live in the repository’s `own/dev` directory, outside the npm package. Upstream synchronization uses candidate pull requests and platform checks before promotion.
