@@ -674,9 +674,13 @@ mod tests {
     /// X11 startup notification and docks match a window to its launcher by `StartupWMClass`,
     /// so it has to be the class the window carries: the app id, on Wayland and X11 alike.
     #[test]
-    fn the_desktop_entry_names_the_window_class() {
+    fn packaged_linux_launcher_and_native_window_use_their_distribution_identity() {
         let entry = include_str!("../../../packaging/linux/ai.storyteller.photocraft.desktop");
         let class = entry.lines().find_map(|line| line.strip_prefix("StartupWMClass="));
-        assert_eq!(class, Some(super::APP_ID));
+        assert_eq!(class, Some("ai.storyteller.photocraft"));
+        if !cfg!(feature = "own") {
+            assert_eq!(class, Some(super::APP_ID));
+        }
+        assert_eq!(super::native_options(super::CUSTOM_TITLEBAR).viewport.app_id.as_deref(), Some(super::APP_ID));
     }
 }
