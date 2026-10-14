@@ -1,0 +1,54 @@
+name: PhotoCraft Own QA
+on:
+  push:
+    branches: [own-main, 'codex/**']
+    paths: ['own/**', 'apps/photocraft/**', 'crates/ui-egui/**', '.github/workflows/own-*.yml']
+  pull_request:
+    branches: [own-main]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref: {type: string, required: true}
+      version: {type: string, required: true}
+permissions: {contents: read}
+jobs:
+  qa:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    defaults:
+      run: {shell: bash}
+    steps:
+      - uses: actions/checkout@v6
+        with: {ref: '${{ inputs.ref || github.sha }}', fetch-depth: 0}
+      - uses: actions/setup-node@v6
+        with: {node-version: '24', package-manager-cache: false}
+      - uses: dtolnay/rust-toolchain@stable
+        with: {components: 'rustfmt,clippy'}
+      - uses: Swatinem/rust-cache@v2
+        with: {key: 'own-${{ runner.os }}'}
+      - run: npm ci --prefix own
+      - run: npm run check --prefix own && npm test --prefix own
+      - run: cargo fmt --all -- --check
+      - run: cargo xtask layers
+      - run: cargo test --locked -p photocraft -p photocraft-ui-egui --lib --tests --features heif,photocraft/own
+      - run: cargo clippy --locked -p photocraft -p photocraft-ui-egui --all-targets --features heif,photocraft/own -- -D warnings
+      - name: Build and verify native distribution
+        env: {PHOTOCRAFT_RELEASE_VERSION: '${{ inputs.version }}'}
+        run: node own/ci/build.mjs
+      - name: Runtime, MCP, installation and package QA
+        run: |
+          manifest=$(find own/out -name manifest.json -print -quit)
+          PHOTOCRAFT_TEST_MANIFEST="$PWD/$manifest" npm test --prefix own
+          node own/ci/smoke.mjs "$manifest"
+          node own/ci/pack-smoke.mjs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-${{ runner.os }}
+          path: |
+            own/out/**/manifest.json
+            own/out/**/*.tgz
+          retention-days: 14

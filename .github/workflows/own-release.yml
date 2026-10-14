@@ -1,0 +1,67 @@
+name: Publish PhotoCraft Own
+on:
+  workflow_dispatch:
+    inputs:
+      release: {description: 'patch, minor, major, prerelease or exact semver', type: string, required: true, default: prerelease}
+      tag: {description: 'npm channel', type: choice, options: [next, latest], default: next, required: true}
+permissions: {contents: read}
+concurrency: {group: 'photocraft-own-release', cancel-in-progress: false}
+jobs:
+  prepare:
+    if: github.repository == 'petercjl/photocraft-own' && github.ref == 'refs/heads/own-main'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.candidate.outputs.version }}
+      ref: ${{ steps.candidate.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v6
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v6
+        with: {node-version: '24', package-manager-cache: false}
+      - run: npm ci --prefix own
+      - id: candidate
+        env: {RELEASE: '${{ inputs.release }}'}
+        run: |
+          echo "version=$(node own/ci/version.mjs "$RELEASE")" >> "$GITHUB_OUTPUT"
+          echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  qa:
+    needs: prepare
+    uses: ./.github/workflows/own-build.yml
+    with:
+      ref: ${{ needs.prepare.outputs.ref }}
+      version: ${{ needs.prepare.outputs.version }}
+  publish:
+    needs: [prepare, qa]
+    runs-on: ubuntu-latest
+    permissions: {contents: write, id-token: write}
+    steps:
+      - uses: actions/checkout@v6
+        with: {ref: own-main, fetch-depth: 0}
+      - uses: actions/setup-node@v6
+        with: {node-version: '24.15.0', registry-url: 'https://registry.npmjs.org', package-manager-cache: false}
+      - run: npm install --global npm@latest
+      - run: npm ci --prefix own
+      - uses: actions/download-artifact@v7
+        with: {path: own/out/verified}
+      - name: Record registry-verified native payloads
+        env:
+          EXPECTED_REF: ${{ needs.prepare.outputs.ref }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_REF"
+          node own/ci/publish-assets.mjs own/out/verified "$RELEASE_VERSION"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add own/release.json own/package.json
+          git commit -m 'chore: record verified native distribution'
+          git push origin HEAD:own-main
+      - name: Publish manager through npm Release Kit OIDC
+        working-directory: own
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: npx --yes --package @petercjl/npm-release-kit@0.1.4 npm-release-kit ci publish --release "$RELEASE_VERSION" --tag "$RELEASE_TAG"
+      - name: Verify exact registry identity and dist-tag
+        env: {RELEASE_VERSION: '${{ needs.prepare.outputs.version }}', RELEASE_TAG: '${{ inputs.tag }}'}
+        run: node own/ci/verify-registry.mjs

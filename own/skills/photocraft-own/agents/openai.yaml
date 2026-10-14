@@ -1,0 +1,4 @@
+interface:
+  display_name: "PhotoCraft Own"
+  short_description: "Install and use PhotoCraft image editing through CLI or MCP"
+  default_prompt: "Use $photocraft-own to edit the supplied image and save an editable document."
