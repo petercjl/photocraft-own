@@ -35,7 +35,7 @@ pub fn open(app: &mut PhotocraftApp, ctx: &egui::Context, url: &str) -> Value {
 
 /// The prominent "Join us on Discord" button.
 pub fn discord_button(app: &mut PhotocraftApp, ui: &mut egui::Ui, min_width: f32) -> egui::Response {
-    let r = crate::widgets::primary_button(ui, if crate::distribution::IS_OWN { "PhotoCraft Own project" } else { tl!("Join us on Discord") }, min_width)
+    let r = crate::widgets::primary_button(ui, if crate::distribution::IS_OWN { crate::distribution::TITLE } else { tl!("Join us on Discord") }, min_width)
         .on_hover_text(DISCORD);
     if r.clicked() {
         open(app, ui.ctx(), DISCORD);
@@ -50,7 +50,7 @@ pub fn link_row(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     let links = [
         (tl!("PhotoCraft website"), APP_PAGE),
         (tl!("GitHub"), GITHUB),
-        (if crate::distribution::IS_OWN { "Based on PhotoCraft" } else { tl!("ArtCraft") }, ARTCRAFT_WEBSITE),
+        (if crate::distribution::IS_OWN { "PhotoCraft" } else { tl!("ArtCraft") }, ARTCRAFT_WEBSITE),
     ];
     let font = egui::FontId::proportional(12.5);
     let sep = "  ·  ";

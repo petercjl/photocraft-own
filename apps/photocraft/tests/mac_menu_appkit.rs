@@ -19,7 +19,7 @@ fn main() {
     use objc2_app_kit::{NSApplication, NSEvent, NSEventMask, NSEventModifierFlags, NSEventSubtype, NSEventType, NSMenu};
     use objc2_foundation::{NSPoint, NSString};
     use photocraft_ui_egui::PhotocraftApp;
-    use photocraft_ui_egui::native_menu;
+    use photocraft_ui_egui::native_menu::{self, APP_NAME};
     use serde_json::json;
 
     let mtm = MainThreadMarker::new().expect("harness = false runs on the main thread");
@@ -83,6 +83,7 @@ fn main() {
 
     let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), photocraft_ui_egui::Services::default());
     let ctx = egui::Context::default();
+    photocraft_ui_egui::menus::invoke(&mut app, &ctx, "app.language.en", json!({})).expect("deterministic test locale");
     let frame = |app: &mut PhotocraftApp, raw: egui::RawInput| {
         let mut out = ctx.run_ui(raw, |ui| {
             native_menu::run(app, ui.ctx());
@@ -97,13 +98,16 @@ fn main() {
     // The Mac layout, as AppKit has it.
     let bar = main_menu();
     let tops: Vec<String> = (0..bar.numberOfItems()).filter_map(|i| bar.itemAtIndex(i)?.submenu()).map(|m| m.title().to_string()).collect();
-    assert_eq!(tops, ["PhotoCraft", "File", "Edit", "Image", "Layer", "Type", "Select", "Filter", "View", "Window", "Help"]);
-    let app_menu = submenu(&bar, "PhotoCraft");
+    assert_eq!(tops, [APP_NAME, "File", "Edit", "Image", "Layer", "Type", "Select", "Filter", "View", "Window", "Help"]);
+    let app_menu = submenu(&bar, APP_NAME);
     let names = titles(&app_menu);
-    for want in ["About PhotoCraft", "Settings", "Language", "Appearance", "Hide PhotoCraft", "Quit PhotoCraft"] {
+    let about = format!("About {APP_NAME}");
+    let hide = format!("Hide {APP_NAME}");
+    let quit_name = format!("Quit {APP_NAME}");
+    for want in [about.as_str(), "Settings", "Language", "Appearance", hide.as_str(), quit_name.as_str()] {
         assert!(names.iter().any(|n| n == want), "{want} missing from the app menu: {names:?}");
     }
-    let quit = app_menu.itemAtIndex(index(&app_menu, "Quit PhotoCraft")).expect("Quit");
+    let quit = app_menu.itemAtIndex(index(&app_menu, &quit_name)).expect("Quit");
     assert_eq!(quit.keyEquivalent().to_string(), "q");
     assert_eq!(quit.keyEquivalentModifierMask(), NSEventModifierFlags::Command);
     assert!(!titles(&submenu(&bar, "File")).iter().any(|n| n == "Exit"), "Exit moved to the app menu as Quit");

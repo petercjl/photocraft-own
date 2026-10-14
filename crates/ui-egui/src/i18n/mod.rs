@@ -232,7 +232,16 @@ impl LangInfo {
     }
 
     fn catalog(&self) -> &Catalog {
-        self.catalog.get_or_init(|| Catalog::parse(&self.text()))
+        self.catalog.get_or_init(|| {
+            let mut text = self.text();
+            // Distribution product names remain canonical in every UI language.
+            if crate::distribution::IS_OWN {
+                text.push_str(
+                    "\n\tPhotoCraft Own\tPhotoCraft Own\n\tPhotoCraft\tPhotoCraft\n@id\thelp.discord\tPhotoCraft Own\n@id\thelp.artcraftWebsite\tPhotoCraft\n",
+                );
+            }
+            Catalog::parse(&text)
+        })
     }
 }
 

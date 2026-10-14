@@ -658,7 +658,8 @@ mod tests {
                 assert!(a.right() <= min.left(), "{a:?} runs into the caption buttons at {width}");
             }
             // Wide windows show the whole group; the narrowest drops Discord (also Help › Discord).
-            let has_discord = texts(&out).iter().any(|(t, _)| t == "Discord");
+            let project_label = if crate::distribution::IS_OWN { "GitHub" } else { "Discord" };
+            let has_discord = texts(&out).iter().any(|(t, _)| t == project_label);
             assert_eq!(has_discord, width > 1000.0, "Discord at {width}");
         }
     }

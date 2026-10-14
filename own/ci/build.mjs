@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import os from 'node:os';
 import {execFileSync} from 'node:child_process';
 import * as tar from 'tar';
 import {packageRoot,pkg,platform,ID,exclusive,digest,read,fail} from '../lib/common.mjs';
@@ -15,8 +16,8 @@ const git=(...a)=>execFileSync('git',a,{cwd:repo,encoding:'utf8'}).trim();
 if(!allowDirty&&git('status','--porcelain'))fail('DIRTY_BUILD','Commit the candidate before producing release artifacts (use --allow-dirty for a local development build)');
 const buildCommit=git('rev-parse','HEAD'),upstream=read(path.join(packageRoot,'upstream.json'));
 const upstreamVersion=fs.readFileSync(path.join(repo,'Cargo.toml'),'utf8').match(/\[workspace\.package\][\s\S]*?version\s*=\s*"([^"]+)"/)[1];
-const env={...process.env,PHOTOCRAFT_BUILD_SHA:buildCommit,PHOTOCRAFT_BUILD_DATE:new Date().toISOString().slice(0,10)};
-if(platform==='win32-x64')env.CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS='-C target-feature=+crt-static';
+const env={...process.env,PHOTOCRAFT_BUILD_SHA:buildCommit,PHOTOCRAFT_OWN_VERSION:version,PHOTOCRAFT_BUILD_DATE:new Date().toISOString().slice(0,10)};
+if(platform==='win32-x64'){env.CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS='-C target-feature=+crt-static';env.PHOTOCRAFT_REQUIRE_WINRES='1';}
 if(!skip)execFileSync('cargo',['build','--release','--locked','-p','photocraft','-p','photocraft-cli','--features','heif,photocraft/own','--target',target],{cwd:repo,env,stdio:'inherit'});
 const out=path.join(packageRoot,'out',`build-${version}-${platform}-${crypto.randomUUID()}`);fs.mkdirSync(out,{recursive:true});
 const binaryDir=path.join(process.env.CARGO_TARGET_DIR||path.join(repo,'target'),target,'release');
@@ -37,7 +38,13 @@ if(platform==='darwin-arm64') {
 for(const stage of [cliStage,desktopStage]) {
   const licenses=path.join(stage,stage===cliStage?'cli-licenses':'desktop-licenses');fs.mkdirSync(licenses);
   for(const n of ['LICENSE-MIT','LICENSE-APACHE','NOTICE','ATTRIBUTION.md'])fs.copyFileSync(path.join(repo,n),path.join(licenses,n),fs.constants.COPYFILE_EXCL);
-  for(const n of ['OFL-Inter.txt','OFL-JetBrainsMono.txt'])fs.copyFileSync(path.join(repo,'assets','fonts',n),path.join(licenses,n),fs.constants.COPYFILE_EXCL);
+  const notices=['assets/dict/LICENSE-SCOWL.txt','assets/fonts/OFL-Inter.txt','assets/fonts/OFL-JetBrainsMono.txt','assets/app-icon/LICENSE.txt','assets/icons/LICENSE-lucide.txt','assets/icons/LICENSE-symmetry-axes.txt','assets/icons/LICENSE-noun-magnetic-lasso.txt','crates/ui-egui/src/LICENSE-solarized.txt','crates/ui-egui/src/i18n/LICENSE-translations.txt'];
+  for(const n of notices){const destination=path.join(licenses,n);fs.mkdirSync(path.dirname(destination),{recursive:true});fs.copyFileSync(path.join(repo,n),destination,fs.constants.COPYFILE_EXCL);}
+  const lock=fs.readFileSync(path.join(repo,'Cargo.lock'),'utf8'),fontVersion=lock.match(/name = "epaint_default_fonts"\nversion = "([^"]+)"/)[1];
+  const registry=path.join(process.env.CARGO_HOME||path.join(os.homedir(),'.cargo'),'registry','src');
+  const fontSource=fs.readdirSync(registry).map(n=>path.join(registry,n,`epaint_default_fonts-${fontVersion}`)).find(n=>fs.existsSync(n));
+  if(!fontSource)fail('LICENSE_SOURCE_UNAVAILABLE','Cannot locate the exact default-font dependency notices');
+  for(const n of ['README.md','fonts/UFL.txt','fonts/OFL.txt','fonts/Hack-Regular.txt','fonts/emoji-icon-font-mit-license.txt']){const destination=path.join(licenses,'dependencies',`epaint_default_fonts-${fontVersion}`,n);fs.mkdirSync(path.dirname(destination),{recursive:true});fs.copyFileSync(path.join(fontSource,n),destination,fs.constants.COPYFILE_EXCL);}
 }
 const assets={};
 for(const [role,stage] of [['cli',cliStage],['desktop',desktopStage]]) {
