@@ -45,7 +45,7 @@ for(const [role,stage] of [['cli',cliStage],['desktop',desktopStage]]) {
   await tar.c({gzip:true,file,cwd:stage,portable:true,noMtime:true},fs.readdirSync(stage).sort());assets[role]={filename,size:fs.statSync(file).size,sha256:await digest(file)};
 }
 const executables={cli:{path:exes.cli,sha256:await digest(cli)},desktop:{path:exes.desktop,sha256:await digest(path.join(desktopStage,exes.desktop))}};
-const v={identity:ID,contract:1,upstreamVersion,upstreamCommit:upstream.commit,buildCommit,features:['heif','own'],developmentBuild:allowDirty,signing:platform==='darwin-arm64'?(process.env.PHOTOCRAFT_OWN_SIGN_IDENTITY?'developer-id-signed':'ad-hoc'):'unsigned',executables,assets};
+const v={identity:ID,contract:1,upstreamVersion,upstreamCommit:upstream.commit,buildCommit,features:['heif','own'],developmentBuild:allowDirty||skip,signing:platform==='darwin-arm64'?(process.env.PHOTOCRAFT_OWN_SIGN_IDENTITY?'developer-id-signed':'ad-hoc'):'unsigned',executables,assets};
 const manifest={schema:1,package:pkg.name,version:version,platforms:{[platform]:v}};
 exclusive(path.join(out,'manifest.json'),manifest,0o644);
 console.log(JSON.stringify({ok:true,out,manifest:path.join(out,'manifest.json'),platform,version:version},null,2));

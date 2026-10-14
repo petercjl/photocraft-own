@@ -26,8 +26,9 @@ export function replaceBacked(file,value) {
   const next=`${file}.next-${crypto.randomUUID()}`;exclusive(next,value);fs.renameSync(next,file);return backup;
 }
 export function paths({home=os.homedir(),root=process.env.PHOTOCRAFT_OWN_HOME,host=process.platform}={}) {
+  const customRoot=Boolean(root);
   root=path.resolve(root || (host==='darwin'?path.join(home,'Library','Application Support','photocraft-own'):host==='win32'?path.join(process.env.LOCALAPPDATA||path.join(home,'AppData','Local'),'photocraft-own'):path.join(home,'.local','share','photocraft-own')));
-  return {root,manager:path.join(root,'manager'),versions:path.join(root,'versions'),cache:path.join(root,'cache'),config:host==='win32'&&!process.env.PHOTOCRAFT_OWN_HOME?path.join(process.env.APPDATA||path.join(home,'AppData','Roaming'),'photocraft-own','config'):path.join(root,'config'),state:path.join(root,'manager','state.json'),lock:path.join(root,'manager','operation.lock')};
+  return {root,manager:path.join(root,'manager'),versions:path.join(root,'versions'),cache:path.join(root,'cache'),config:host==='win32'&&!customRoot?path.join(process.env.APPDATA||path.join(home,'AppData','Roaming'),'photocraft-own','config'):path.join(root,'config'),state:path.join(root,'manager','state.json'),lock:path.join(root,'manager','operation.lock')};
 }
 export async function locked(p,fn) {
   rejectLinks(p.root);fs.mkdirSync(p.manager,{recursive:true,mode:0o700});let fd;
