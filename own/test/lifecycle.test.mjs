@@ -43,6 +43,6 @@ test('doctor identifies missing runtime and interrupted transactions',async()=>{
 });
 test('managed-runtime update failure retains old active version; verified rollback', {skip:!process.env.PHOTOCRAFT_TEST_MANIFEST},async()=>{
  const {p}=fixture(),file=process.env.PHOTOCRAFT_TEST_MANIFEST,m=read(file),assetDir=path.dirname(file);await install({yes:true,p,manifest:m,assetDir});const before=readState(p);
- const next=structuredClone(m);next.version='0.1.0-next.1';await assert.rejects(install({yes:true,p,manifest:next,assetDir,beforeActivate:()=>{throw Error('injected interruption');}}),/injected interruption/);assert.equal(readState(p).active,before.active);assert.equal((await doctor(p)).ok,true);
+ const next=structuredClone(m);next.version='0.1.0-next.1';const lease=path.join(p.manager,'sessions','test-desktop.json');exclusive(lease,{pid:process.pid,kind:'desktop'});await assert.rejects(install({yes:true,p,manifest:next,assetDir}),code('APP_RUNNING'));fs.unlinkSync(lease);await assert.rejects(install({yes:true,p,manifest:next,assetDir,beforeActivate:()=>{throw Error('injected interruption');}}),/injected interruption/);assert.equal(readState(p).active,before.active);assert.equal((await doctor(p)).ok,true);
  await install({yes:true,p,manifest:next,assetDir});assert.equal(readState(p).version,next.version);await rollback({yes:true,p});assert.equal(readState(p).active,before.active);
 });

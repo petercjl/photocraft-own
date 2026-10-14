@@ -2,7 +2,7 @@
 
 Choose `exec` for isolated operations, `serve` for a persistent document session, or `mcp` when the host supports MCP. All three use the same native PhotoCraft CLI. Native CLI help and command schemas are authoritative for the installed version.
 
-Discover: `photocraft-own exec -- --help`, `photocraft-own exec -- commands --json`, and `photocraft-own exec -- describe COMMAND --json`. Confirm syntax in help before using uncertain flags.
+Discover: `photocraft-own exec -- --help`, `photocraft-own exec -- commands --json`, and `photocraft-own exec -- commands --json --filter COMMAND`. Confirm syntax in help before using uncertain flags.
 
 Example isolated editable document:
 

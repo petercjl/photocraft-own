@@ -1,7 +1,7 @@
 name: PhotoCraft Own QA
 on:
   push:
-    branches: [own-main, 'codex/**']
+    branches: [own-main]
     paths: ['own/**', 'apps/photocraft/**', 'crates/ui-egui/**', '.github/workflows/own-*.yml']
   pull_request:
     branches: [own-main]
@@ -11,6 +11,9 @@ on:
       ref: {type: string, required: true}
       version: {type: string, required: true}
 permissions: {contents: read}
+concurrency:
+  group: own-qa-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_call' }}
 jobs:
   qa:
     strategy:
