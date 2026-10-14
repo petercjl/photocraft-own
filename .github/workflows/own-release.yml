@@ -4,7 +4,8 @@ on:
     inputs:
       release: {description: 'patch, minor, major, prerelease or exact semver', type: string, required: true, default: prerelease}
       tag: {description: 'npm channel', type: choice, options: [next, latest], default: next, required: true}
-permissions: {contents: read}
+      verified_run: {description: 'Optional failed publication run with successful native QA and unchanged distributed code', type: string, required: false}
+permissions: {contents: read, actions: read}
 concurrency: {group: 'photocraft-own-release', cancel-in-progress: false}
 jobs:
   prepare:
@@ -13,18 +14,26 @@ jobs:
     outputs:
       version: ${{ steps.candidate.outputs.version }}
       ref: ${{ steps.candidate.outputs.ref }}
+      runtime_ref: ${{ steps.candidate.outputs.runtime_ref }}
     steps:
       - uses: actions/checkout@v6
         with: {fetch-depth: 0}
       - uses: actions/setup-node@v6
         with: {node-version: '24', package-manager-cache: false}
       - run: npm ci --prefix own
+      - run: npm run check --prefix own && npm test --prefix own
       - id: candidate
-        env: {RELEASE: '${{ inputs.release }}', RELEASE_TAG: '${{ inputs.tag }}'}
+        env: {RELEASE: '${{ inputs.release }}', RELEASE_TAG: '${{ inputs.tag }}', VERIFIED_RUN: '${{ inputs.verified_run }}', GH_TOKEN: '${{ github.token }}'}
         run: |
           echo "version=$(node own/ci/version.mjs "$RELEASE")" >> "$GITHUB_OUTPUT"
           echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          if [ -n "$VERIFIED_RUN" ]; then
+            echo "runtime_ref=$(node own/ci/verify-resume.mjs "$VERIFIED_RUN")" >> "$GITHUB_OUTPUT"
+          else
+            echo "runtime_ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          fi
   qa:
+    if: ${{ inputs.verified_run == '' }}
     needs: prepare
     uses: ./.github/workflows/own-build.yml
     with:
@@ -32,23 +41,28 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
   publish:
     needs: [prepare, qa]
+    if: ${{ always() && needs.prepare.result == 'success' && (needs.qa.result == 'success' || (inputs.verified_run != '' && needs.qa.result == 'skipped')) }}
     runs-on: ubuntu-latest
-    permissions: {contents: write, id-token: write}
+    permissions: {contents: write, id-token: write, actions: read}
     steps:
       - uses: actions/checkout@v6
         with: {ref: own-main, fetch-depth: 0}
       - uses: actions/setup-node@v6
         with: {node-version: '24.15.0', registry-url: 'https://registry.npmjs.org', package-manager-cache: false}
-      - run: npm install --global npm@latest
+      - run: npm install --global npm@11.18.0
       - run: npm ci --prefix own
       - uses: actions/download-artifact@v7
-        with: {path: own/out/verified}
+        with:
+          path: own/out/verified
+          run-id: ${{ inputs.verified_run || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Record registry-verified native payloads
         env:
-          EXPECTED_REF: ${{ needs.prepare.outputs.ref }}
+          EXPECTED_REF: ${{ needs.prepare.outputs.runtime_ref }}
+          SOURCE_REF: ${{ needs.prepare.outputs.ref }}
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          test "$(git rev-parse HEAD)" = "$EXPECTED_REF"
+          test "$(git rev-parse HEAD)" = "$SOURCE_REF"
           node own/ci/publish-assets.mjs own/out/verified "$RELEASE_VERSION"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

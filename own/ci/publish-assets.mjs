@@ -4,6 +4,7 @@ import os from 'node:os';
 import {execFileSync} from 'node:child_process';
 import {pkg,read,digest,exclusive,replaceBacked,fail,packageRoot} from '../lib/common.mjs';
 import {validateManifest,payloadVersion,payloadURL,assetFile} from '../lib/assets.mjs';
+import {packInfo} from './npm-pack.mjs';
 if(process.env.GITHUB_ACTIONS!=='true'||!process.env.ACTIONS_ID_TOKEN_REQUEST_URL)fail('OIDC_ENVIRONMENT_REQUIRED','Payloads require the authorized GitHub-hosted OIDC release job');
 const root=path.resolve(process.argv[2]),version=process.argv[3],expected=process.env.EXPECTED_REF;
 const manifests=[],files=new Map();function walk(dir){for(const e of fs.readdirSync(dir,{withFileTypes:true})){const p=path.join(dir,e.name);if(e.isDirectory())walk(p);else if(e.name==='manifest.json')manifests.push(read(p));else if(e.name.endsWith('.tgz')){if(files.has(e.name))fail('DUPLICATE_ASSET',e.name);files.set(e.name,p);}}}walk(root);
@@ -19,7 +20,7 @@ for(const v of Object.values(combined.platforms))for(const a of Object.values(v.
   fs.copyFileSync(files.get(a.filename),path.join(dir,'payload.bin'),fs.constants.COPYFILE_EXCL);
   exclusive(path.join(dir,'package.json'),{name:pkg.name,version:ver,description:'PhotoCraft Own immutable runtime data. Install the latest manager instead.',license:'MIT',files:['payload.bin'],repository:pkg.repository,publishConfig:{access:'public'}});
   const npm=args=>execFileSync('npm',args,{cwd:dir,encoding:'utf8',stdio:['ignore','pipe','pipe']});
-  const pack=JSON.parse(npm(['pack','--json']))[0],tgz=path.join(dir,pack.filename);let meta=await metadata(ver);
+  const pack=packInfo(npm(['pack','--json']),pkg.name,ver),tgz=path.join(dir,pack.filename);let meta=await metadata(ver);
   if(!meta){try{npm(['publish',tgz,'--provenance','--access','public','--tag','desktop-assets']);}catch(e){if(/EOTP|ENEEDAUTH|auth\/cli\//.test(String(e.stderr)))fail('TRUSTED_PUBLISHER_REQUIRED','Repair OIDC configuration; no OTP/token fallback');throw e;}}
   const deadline=Date.now()+20*60*1000;while(!meta){if(Date.now()>deadline)fail('NPM_PROCESSING_PENDING',ver);await new Promise(r=>setTimeout(r,15000));meta=await metadata(ver);}
   if(meta.dist?.integrity!==pack.integrity||meta.dist?.tarball!==payloadURL(a.sha256))fail('PAYLOAD_CONFLICT',ver);
