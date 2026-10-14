@@ -74,6 +74,7 @@ pub mod direct_select;
 pub mod direction;
 pub mod discard_ui;
 pub mod distort_ui;
+pub mod distribution;
 pub mod doc_props_ui;
 pub mod dock;
 pub mod duplicate_layer_ui;

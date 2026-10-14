@@ -1,0 +1,14 @@
+{
+  "name": "@petercjl/photocraft-own",
+  "version": "0.1.0-next.0",
+  "description": "Managed PhotoCraft desktop, CLI and MCP image editing for Agents",
+  "type": "module",
+  "bin": {"photocraft-own": "bin/photocraft-own.mjs"},
+  "files": ["bin", "lib", "skills", "capabilities.json", "release.json", "README.md", "LICENSE", "NOTICE"],
+  "engines": {"node": ">=22"},
+  "license": "MIT",
+  "publishConfig": {"access": "public"},
+  "repository": {"type": "git", "url": "git+https://github.com/petercjl/photocraft-own.git", "directory": "own"},
+  "scripts": {"test": "node --test test/*.test.mjs", "check": "node --check bin/photocraft-own.mjs && node --check lib/runtime.mjs && node --check lib/skills.mjs", "build:runtime": "node ci/build.mjs", "smoke": "node ci/smoke.mjs"},
+  "dependencies": {"tar": "7.5.22", "semver": "7.8.5"}
+}

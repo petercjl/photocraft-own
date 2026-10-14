@@ -1,0 +1,25 @@
+{
+  "schema": "portable-skill-adapter",
+  "platform": "codex",
+  "mappings": [
+    {
+      "capability_id": "command.execute",
+      "status": "implemented",
+      "features": [
+        "argv",
+        "stdio",
+        "exit-status",
+        "local-files"
+      ],
+      "implementation": {
+        "type": "host-command-executor",
+        "discovery": "Resolve the command executor from the current host advertised tools; invoke photocraft-own from PATH. Probe version/capabilities/doctor.",
+        "normalization": "Map stdout, stderr and exit status; report artifacts as absolute local paths, task_id and cost null, warnings for unavailable visual inspection.",
+        "skill_root": "CODEX_HOME/skills or host default"
+      },
+      "evidence": [
+        "Runtime validation pending for this Agent adapter; macOS direct CLI tested separately."
+      ]
+    }
+  ]
+}

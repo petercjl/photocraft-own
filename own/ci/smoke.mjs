@@ -1,0 +1,21 @@
+import {mcpSmoke} from './mcp-smoke.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+const cli=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../bin/photocraft-own.mjs');
+const root=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'photocraft-own-smoke-')),work=path.join(root,'images');fs.mkdirSync(work);
+const env={...process.env,PHOTOCRAFT_OWN_HOME:process.env.PHOTOCRAFT_OWN_HOME||path.join(root,'managed')};
+function run(args,input){const p=spawnSync(process.execPath,[cli,...args],{env,encoding:'utf8',input,timeout:120000});if(p.status!==0)throw Error(p.stderr+'\n'+p.stdout);return p.stdout;}
+if(process.argv[2])run(['install','--manifest',path.resolve(process.argv[2]),'--asset-dir',path.dirname(path.resolve(process.argv[2])),'--yes']);
+run(['doctor','--json']);
+run(['exec','--','run','--new','{"width":96,"height":64,"background":"#204080"}','--cmd','type.create','--params','{"x":4,"y":28,"text":"Agent","size":16}','--out',path.join(work,'editable.psd')]);
+const doc=JSON.parse(run(['exec','--','info',path.join(work,'editable.psd'),'--compact']));
+if(!doc.layers.some(x=>x.kind==='Type'&&x.text.text==='Agent'))throw Error('PSD text roundtrip failed');
+const req=[{id:1,method:'doc.open',params:{path:'editable.psd'}},{id:2,method:'engine.execute',params:{command:'layer.newAdjustmentLayer.vibrance',params:{vibrance:20}}},{id:3,method:'doc.save',params:{path:'graded.png'}}];
+const replies=run(['serve','--automation-read-root',work,'--automation-write-root',work],req.map(x=>JSON.stringify(x)+'\n').join('')).trim().split('\n').map(JSON.parse);
+if(replies.length!==3||replies.some(x=>!x.ok)||!fs.existsSync(path.join(work,'graded.png')))throw Error('Persistent session output failed');
+run(['skill','install','--agent','codex','--target-root',path.join(root,'skills'),'--copy']);
+const mcpToolCount=await mcpSmoke(env,work);
+console.log(JSON.stringify({ok:true,mcpToolCount,root,checks:['managed-install','doctor','CLI editable PSD','serve adjustment and PNG','managed Skill install','MCP edit/export/path boundary'],guiTested:false},null,2));

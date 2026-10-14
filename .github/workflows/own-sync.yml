@@ -1,0 +1,22 @@
+name: Sync PhotoCraft upstream candidate
+on:
+  schedule: [{cron: '10 4 * * *'}]
+  workflow_dispatch:
+permissions: {contents: write, pull-requests: write, actions: write}
+concurrency: {group: photocraft-own-upstream, cancel-in-progress: false}
+jobs:
+  candidate:
+    if: github.repository == 'petercjl/photocraft-own' && github.ref == 'refs/heads/own-main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with: {ref: own-main, fetch-depth: 0}
+      - uses: actions/setup-node@v6
+        with: {node-version: '24', package-manager-cache: false}
+      - run: npm ci --prefix own
+      - env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          git remote add upstream https://github.com/storytold/photocraft.git
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          node own/ci/sync.mjs --apply

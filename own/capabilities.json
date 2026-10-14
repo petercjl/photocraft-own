@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "package": "@petercjl/photocraft-own",
+  "contract": 1,
+  "commands": [
+    "version",
+    "capabilities",
+    "capabilities --native",
+    "doctor",
+    "install",
+    "launch",
+    "exec",
+    "serve",
+    "mcp",
+    "mcp-config",
+    "update check",
+    "update install",
+    "rollback",
+    "skill source",
+    "skill status",
+    "skill install",
+    "skill update"
+  ],
+  "platforms": {
+    "darwin-arm64": "implemented",
+    "win32-x64": "implemented"
+  },
+  "agents": {
+    "codex": "implemented",
+    "sealseek": "implemented; target-root required from host"
+  },
+  "interfaces": {
+    "exec": "native CLI parameters, output and exit code preserved",
+    "serve": "native persistent JSON-lines session",
+    "mcp": "native stdio MCP; stdout contains protocol only",
+    "bridge": "mcp --bridge with native token and scoped filesystem roots"
+  },
+  "installation": {
+    "node": ">=22",
+    "rustRequiredForUsers": false,
+    "desktop": "precompiled isolated runtime",
+    "authentication": "none for local image editing",
+    "downloadHost": "registry.npmjs.org"
+  },
+  "updates": {
+    "channel": "latest by default; next explicit",
+    "manager": "update the npm package through the Agent",
+    "runtime": "update install; manifest/hash verification and immutable version directory",
+    "skill": "skill update; refuses unmanaged targets and local edits",
+    "rollback": "program state only; user images are not restored or removed"
+  },
+  "limits": [
+    "No built-in OCR is claimed",
+    "Native command availability depends on the installed engine version and mode",
+    "Fonts must be installed and licensed separately",
+    "Desktop GUI and Agent discovery require target-host verification"
+  ],
+  "sideEffects": [
+    "install/update write managed program/cache/state directories",
+    "launch writes isolated desktop configuration",
+    "editing writes caller-selected outputs",
+    "Skill installation writes only the selected host target"
+  ],
+  "skillRegistration": {
+    "sealseek": {
+      "status": "implemented",
+      "schemas": [
+        "workspace-skill-manifest.v1",
+        "skill-pool-manifest.v1"
+      ],
+      "configuration": "Explicit --target-root, --registry and --pool-root resolved from host configuration",
+      "hostRuntimeVerified": false
+    }
+  }
+}

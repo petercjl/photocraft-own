@@ -1,0 +1,43 @@
+{
+  "schema": "portable-skill-capabilities",
+  "schema_version": "1.0.0",
+  "skill": "photocraft-own",
+  "target_platforms": [
+    "codex",
+    "sealseek"
+  ],
+  "capabilities": [
+    {
+      "id": "command.execute",
+      "purpose": "Invoke the installed capability CLI and inspect local results",
+      "required": true,
+      "required_features": [
+        "argv",
+        "stdio",
+        "exit-status",
+        "local-files"
+      ],
+      "input_fields": [
+        "argv",
+        "cwd",
+        "stdin"
+      ],
+      "output_fields": [
+        "stdout",
+        "stderr",
+        "exit_code"
+      ],
+      "side_effects": {
+        "external_mutation": true,
+        "may_cost_money": false,
+        "authorization": "Only the requested installation or local file operation"
+      },
+      "errors": [
+        "CAPABILITY_UNAVAILABLE",
+        "FEATURE_UNSUPPORTED",
+        "PERMISSION_REQUIRED",
+        "OUTPUT_CONTRACT_FAILED"
+      ]
+    }
+  ]
+}

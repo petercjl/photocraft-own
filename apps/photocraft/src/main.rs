@@ -56,7 +56,7 @@ use photocraft_engine::Session;
 use photocraft_ui_egui::PhotocraftApp;
 
 /// Matches the `.desktop` file and hicolor icon name, so Wayland docks pick up the icon.
-const APP_ID: &str = "ai.storyteller.photocraft";
+const APP_ID: &str = photocraft_ui_egui::distribution::APP_ID;
 
 /// Windows and Linux: no OS title bar; the app's top bar is the title bar, with its own caption
 /// buttons and edge resizing (`photocraft_ui_egui::titlebar`), as Photoshop does on Windows. macOS
@@ -82,7 +82,7 @@ fn native_options(custom_titlebar: bool) -> eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_icon(app_icon::window_icon())
             .with_app_id(APP_ID)
-            .with_title("PhotoCraft")
+            .with_title(photocraft_ui_egui::distribution::TITLE)
             .with_inner_size([1440.0, 900.0])
             .with_min_inner_size([760.0, 480.0])
             .with_drag_and_drop(true)
@@ -370,7 +370,7 @@ fn main() -> eframe::Result {
     let created_in_callback = app_created.clone();
     let started_sentinel = sentinel.clone();
     let result = eframe::run_native(
-        "PhotoCraft",
+        photocraft_ui_egui::distribution::TITLE,
         options,
         Box::new(move |cc| {
             created_in_callback.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -674,9 +674,13 @@ mod tests {
     /// X11 startup notification and docks match a window to its launcher by `StartupWMClass`,
     /// so it has to be the class the window carries: the app id, on Wayland and X11 alike.
     #[test]
-    fn the_desktop_entry_names_the_window_class() {
+    fn packaged_linux_launcher_and_native_window_use_their_distribution_identity() {
         let entry = include_str!("../../../packaging/linux/ai.storyteller.photocraft.desktop");
         let class = entry.lines().find_map(|line| line.strip_prefix("StartupWMClass="));
-        assert_eq!(class, Some(super::APP_ID));
+        assert_eq!(class, Some("ai.storyteller.photocraft"));
+        if !cfg!(feature = "own") {
+            assert_eq!(class, Some(super::APP_ID));
+        }
+        assert_eq!(super::native_options(super::CUSTOM_TITLEBAR).viewport.app_id.as_deref(), Some(super::APP_ID));
     }
 }
