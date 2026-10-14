@@ -40,7 +40,7 @@ for(const stage of [cliStage,desktopStage]) {
   for(const n of ['LICENSE-MIT','LICENSE-APACHE','NOTICE','ATTRIBUTION.md'])fs.copyFileSync(path.join(repo,n),path.join(licenses,n),fs.constants.COPYFILE_EXCL);
   const notices=['assets/dict/LICENSE-SCOWL.txt','assets/fonts/OFL-Inter.txt','assets/fonts/OFL-JetBrainsMono.txt','assets/app-icon/LICENSE.txt','assets/icons/LICENSE-lucide.txt','assets/icons/LICENSE-symmetry-axes.txt','assets/icons/LICENSE-noun-magnetic-lasso.txt','crates/ui-egui/src/LICENSE-solarized.txt','crates/ui-egui/src/i18n/LICENSE-translations.txt'];
   for(const n of notices){const destination=path.join(licenses,n);fs.mkdirSync(path.dirname(destination),{recursive:true});fs.copyFileSync(path.join(repo,n),destination,fs.constants.COPYFILE_EXCL);}
-  const lock=fs.readFileSync(path.join(repo,'Cargo.lock'),'utf8'),fontVersion=lock.match(/name = "epaint_default_fonts"\nversion = "([^"]+)"/)[1];
+  const lock=fs.readFileSync(path.join(repo,'Cargo.lock'),'utf8'),fontVersion=lock.match(/name = "epaint_default_fonts"\r?\nversion = "([^"]+)"/)[1];
   const registry=path.join(process.env.CARGO_HOME||path.join(os.homedir(),'.cargo'),'registry','src');
   const fontSource=fs.readdirSync(registry).map(n=>path.join(registry,n,`epaint_default_fonts-${fontVersion}`)).find(n=>fs.existsSync(n));
   if(!fontSource)fail('LICENSE_SOURCE_UNAVAILABLE','Cannot locate the exact default-font dependency notices');
