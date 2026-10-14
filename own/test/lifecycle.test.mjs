@@ -12,9 +12,9 @@ function fixture(){const root=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir
 const code=c=>e=>e.code===c;
 test('install copied Skill and update preserve UI metadata and added files',async()=>{
  const {p,options}=fixture();let s=await skillInstall(options,p);assert.equal(s.current,true);
- const ui=path.join(s.target,'agents','openai.yaml');fs.writeFileSync(ui,'display_name: Custom\n');fs.writeFileSync(path.join(s.target,'personal.txt'),'user data');
+ const ui=path.join(s.target,'agents','openai.yaml');fs.writeFileSync(ui,'display_name: Custom\n');const meta=path.join(s.target,'.install-meta.json');fs.writeFileSync(meta,JSON.stringify({title:'我的图片工具',description:'用户界面说明'}));fs.writeFileSync(path.join(s.target,'personal.txt'),'user data');
  const record=read(s.record);record.digest='old';fs.writeFileSync(s.record,JSON.stringify(record));
- s=await skillInstall(options,p);assert.equal(s.current,true);assert.equal(fs.readFileSync(ui,'utf8'),'display_name: Custom\n');assert.equal(fs.readFileSync(path.join(s.target,'personal.txt'),'utf8'),'user data');assert.ok(fs.existsSync(s.backup));
+ s=await skillInstall(options,p);assert.equal(s.current,true);assert.equal(fs.readFileSync(ui,'utf8'),'display_name: Custom\n');assert.equal(fs.readFileSync(path.join(s.target,'personal.txt'),'utf8'),'user data');assert.equal(JSON.parse(fs.readFileSync(meta)).title,'我的图片工具');assert.ok(fs.existsSync(s.backup));
  assert.equal((await skillInstall(options,p)).unchanged,true);
  fs.appendFileSync(path.join(s.target,'SKILL.md'),'local edit');await assert.rejects(skillInstall(options,p),code('LOCAL_EDITS'));
 });

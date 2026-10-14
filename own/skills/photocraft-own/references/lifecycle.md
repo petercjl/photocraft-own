@@ -11,3 +11,5 @@ For an authorized update: update the npm package, then run `photocraft-own updat
 `photocraft-own launch` opens the independent desktop. `rollback --yes` switches to a previously verified runtime after authorized recovery; it does not restore edited images. Doctor reports pending transactions and sessions; preserve recovery evidence. Interrupted locks require checking the recorded PID and transaction before a separate recovery decision.
 
 Developer-only local artifacts can be installed with `install --manifest FILE --asset-dir DIR --yes`; this does not represent a registry release.
+
+For SealSeek hosts using workspace-skill-manifest.v1 and skill-pool-manifest.v1, resolve the configured workspace registry and Skill pool from host configuration. After Skill installation run `skill register --agent sealseek --target-root ROOT --registry FILE --pool-root DIR`. This backs up the manifests, adds only this package’s records and pool link, and preserves managed UI choices. Existing unknown records are refused. Other host schemas return an explicit unsupported error. Registration files do not prove live host discovery; confirm it in the host when available.

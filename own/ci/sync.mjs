@@ -1,3 +1,4 @@
+import {restoreOwned} from './protect.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -13,12 +14,12 @@ const base=git('rev-parse',`origin/${settings.productBranch}`),incoming=git('rev
 if(incoming===settings.commit){console.log(JSON.stringify({ok:true,unchanged:true,incoming}));process.exit(0);}
 if(preview){console.log(JSON.stringify({ok:true,dryRun:true,base,incoming,branch}));process.exit(0);}
 const existing=JSON.parse(gh('pr','list','--repo','petercjl/photocraft-own','--head',branch,'--state','all','--json','url,state'));if(existing.length){console.log(JSON.stringify({ok:true,existing}));process.exit(0);}
+try {git('show',`${base}:own/upstream.json`);}catch{fail('PRODUCT_NOT_READY','Merge the initial distribution PR into own-main before applying upstream synchronization');}
 const parent=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'photocraft-sync-')),work=path.join(parent,'candidate');git('worktree','add','-b',branch,work,base);
 const g=(...args)=>run('git',args,work);
 try {
  g('merge','--no-commit','--no-ff',incoming);
- const protectedPaths=g('ls-tree','-r','--name-only',base).split('\n').filter(n=>n.startsWith('own/')||n.startsWith('.github/workflows/own-'));
- g('restore','--source',base,'--staged','--worktree','--',...protectedPaths);
+ restoreOwned(g,base);
  const pin=path.join(work,'own','upstream.json');fs.copyFileSync(pin,path.join(parent,'upstream-before.json'),fs.constants.COPYFILE_EXCL);fs.writeFileSync(pin,JSON.stringify({...settings,commit:incoming},null,2)+'\n');
  g('add','own/upstream.json');g('commit','-m',`chore: sync PhotoCraft upstream ${incoming.slice(0,12)}`);g('push','origin',`HEAD:refs/heads/${branch}`);
  const body=path.join(parent,'pr-body.md');exclusive(body,`Sync upstream PhotoCraft through ${incoming}. Independent npm/runtime files are preserved.\n\nRequires both native QA targets and real candidate acceptance before promotion.\n`);

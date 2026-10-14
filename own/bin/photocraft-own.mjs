@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
+import {registerSealSeek} from '../lib/sealseek.mjs';
 import path from 'node:path';
 import {pkg,packageRoot,platform,paths,read,fail} from '../lib/common.mjs';
 import {doctor,install,rollback,launch,runNative,readState,updateCheck,updateInstall} from '../lib/runtime.mjs';
@@ -13,7 +14,8 @@ const USAGE=`photocraft-own: managed PhotoCraft desktop and Agent image editing
   mcp [native MCP arguments...] | serve [native serve arguments...]
   update check [--channel latest|next] | update install [--channel latest|next] --yes
   rollback --yes
-  skill source | skill status|install|update --agent codex|sealseek [--target-root DIR] [--copy] [--json]
+  skill source | skill register --agent sealseek --target-root DIR --registry FILE --pool-root DIR
+  skill status|install|update --agent codex|sealseek [--target-root DIR] [--copy] [--json]
   mcp-config --read-root DIR --write-root DIR [--json]
 Native CLI arguments and engine commands are preserved. MCP/serve stdout is protocol-only.
 `;
@@ -32,7 +34,7 @@ try {
   else if(command==='install'){const o=options(args,['--yes','--headless','--manifest','--asset-dir','--channel']);json(await install({yes:o.yes,headless:o.headless,manifest:o.manifest?read(path.resolve(o.manifest)):undefined,assetDir:o['asset-dir'],channel:o.channel}));}
   else if(command==='rollback'){const o=options(args,['--yes']);json(await rollback({yes:o.yes}));}
   else if(command==='update'){const action=args.shift(),o=options(args,['--yes','--channel']);if(action==='check')json(await updateCheck(o));else if(action==='install')json(await updateInstall(o));else fail('USAGE','Use update check or update install');}
-  else if(command==='skill'){const action=args.shift(),o=options(args,['--agent','--target-root','--copy']);const opt={agent:o.agent,targetRoot:o['target-root'],copy:o.copy};if(action==='source')json({ok:true,source,version:pkg.version});else if(action==='status')json(skillStatus(opt));else if(['install','update'].includes(action))json(await skillInstall(opt));else fail('USAGE','Use skill source/status/install/update');}
+  else if(command==='skill'){const action=args.shift(),o=options(args,['--agent','--target-root','--copy','--registry','--pool-root']);const opt={agent:o.agent,targetRoot:o['target-root'],copy:o.copy,registry:o.registry,poolRoot:o['pool-root']};if(action==='source')json({ok:true,source,version:pkg.version});else if(action==='status')json(skillStatus(opt));else if(action==='register')json(await registerSealSeek(opt));else if(['install','update'].includes(action))json(await skillInstall(opt));else fail('USAGE','Use skill source/status/install/update');}
   else if(command==='mcp-config'){const o=options(args,['--read-root','--write-root']);if(!o['read-root']||!o['write-root'])fail('USAGE','Declare both --read-root and --write-root');json({mcpServers:{'photocraft-own':{command:process.execPath,args:[path.join(packageRoot,'bin','photocraft-own.mjs'),'mcp','--automation-read-root',path.resolve(o['read-root']),'--automation-write-root',path.resolve(o['write-root'])]}}});}
   else fail('USAGE',`Unknown command ${command}`);
 }catch(e){const error=JSON.stringify({ok:false,error:{code:e.code||'OPERATION_FAILED',message:e.message,...(e.details?{details:e.details}:{})}},null,2)+'\n';if(protocol)process.stderr.write(error);else process.stdout.write(error);process.exitCode=e.code==='USAGE'?2:1;}
