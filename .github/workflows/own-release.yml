@@ -20,7 +20,7 @@ jobs:
         with: {node-version: '24', package-manager-cache: false}
       - run: npm ci --prefix own
       - id: candidate
-        env: {RELEASE: '${{ inputs.release }}'}
+        env: {RELEASE: '${{ inputs.release }}', RELEASE_TAG: '${{ inputs.tag }}'}
         run: |
           echo "version=$(node own/ci/version.mjs "$RELEASE")" >> "$GITHUB_OUTPUT"
           echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
@@ -55,13 +55,13 @@ jobs:
           git add own/release.json own/package.json
           git commit -m 'chore: record verified native distribution'
           git push origin HEAD:own-main
-      - name: Publish manager through npm Release Kit OIDC
+      - name: Publish manager through Trusted Publishing
         working-directory: own
         env:
           GITHUB_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
           RELEASE_TAG: ${{ inputs.tag }}
-        run: npx --yes --package @petercjl/npm-release-kit@0.1.4 npm-release-kit ci publish --release "$RELEASE_VERSION" --tag "$RELEASE_TAG"
+        run: node ci/publish-manager.mjs
       - name: Verify exact registry identity and dist-tag
         env: {RELEASE_VERSION: '${{ needs.prepare.outputs.version }}', RELEASE_TAG: '${{ inputs.tag }}'}
         run: node own/ci/verify-registry.mjs

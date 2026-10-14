@@ -9,3 +9,5 @@ Configuration and session scopes are external to immutable version directories. 
 First distribution uses separate compressed CLI and desktop assets. Content-defined chunking is deferred until measured asset size/reuse justify its complexity. Release QA runs both native targets before OIDC publication. Upstream synchronization opens deterministic candidate PRs; protected own paths survive merges and conflicts remain reviewable. Stable promotion requires actual acceptance of the candidate.
 
 Known release work: npm bootstrap/trusted-publisher account setup, notarization/Windows signing, GUI update menu, host-specific live SealSeek verification. These are explicit pending items rather than assumed runtime support.
+
+Release dispatch, diagnostics and Trusted Publisher setup use npm-release-kit. Its default internal release-it arguments hard-code `v${version}`, which collides with upstream PhotoCraft tags (including v0.1.0). The committed workflow uses the same pinned release-it/OIDC path with `own-v${version}` for manager tags. Runtime payloads are immutable same-package prereleases under desktop-assets. No local publication or write tokens are used.
