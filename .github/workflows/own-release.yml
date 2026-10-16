@@ -40,9 +40,12 @@ jobs:
           fi
       - id: plan
         env: {RELEASE_MODE: "${{ inputs.verified_run != '' && 'native' || inputs.mode }}", RUNTIME_VERSION: '${{ inputs.runtime_version }}', GH_TOKEN: '${{ github.token }}'}
-        run: node own/ci/release-plan.mjs > release-plan.json
+        run: |
+          mkdir -p own/out
+          test ! -e own/out/release-plan.json
+          node own/ci/release-plan.mjs > own/out/release-plan.json
       - uses: actions/upload-artifact@v7
-        with: {name: release-plan, path: release-plan.json}
+        with: {name: release-plan, path: own/out/release-plan.json}
   qa:
     if: ${{ needs.prepare.outputs.mode == 'native' && inputs.verified_run == '' }}
     needs: prepare
