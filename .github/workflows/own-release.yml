@@ -4,7 +4,9 @@ on:
     inputs:
       release: {description: 'patch, minor, major, prerelease or exact semver', type: string, required: true, default: prerelease}
       tag: {description: 'npm channel', type: choice, options: [next, latest], default: next, required: true}
-      verified_run: {description: 'Optional failed publication run with successful native QA and unchanged distributed code', type: string, required: false}
+      mode: {description: 'auto classifies native inputs; manager requires verified reuse', type: choice, options: [auto, manager, native], default: auto, required: true}
+      runtime_version: {description: 'Optional separate native version; only for native builds', type: string, required: false}
+      verified_run: {description: 'Recovery only: failed publication with successful native QA', type: string, required: false}
 permissions: {contents: read, actions: read}
 concurrency: {group: 'photocraft-own-release', cancel-in-progress: false}
 jobs:
@@ -15,6 +17,8 @@ jobs:
       version: ${{ steps.candidate.outputs.version }}
       ref: ${{ steps.candidate.outputs.ref }}
       runtime_ref: ${{ steps.candidate.outputs.runtime_ref }}
+      runtime_version: ${{ steps.plan.outputs.runtime_version }}
+      mode: ${{ steps.plan.outputs.mode }}
     steps:
       - uses: actions/checkout@v6
         with: {fetch-depth: 0}
@@ -25,23 +29,37 @@ jobs:
       - id: candidate
         env: {RELEASE: '${{ inputs.release }}', RELEASE_TAG: '${{ inputs.tag }}', VERIFIED_RUN: '${{ inputs.verified_run }}', GH_TOKEN: '${{ github.token }}'}
         run: |
-          echo "version=$(node own/ci/version.mjs "$RELEASE")" >> "$GITHUB_OUTPUT"
+          version=$(node own/ci/version.mjs "$RELEASE")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
           echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           if [ -n "$VERIFIED_RUN" ]; then
             echo "runtime_ref=$(node own/ci/verify-resume.mjs "$VERIFIED_RUN")" >> "$GITHUB_OUTPUT"
           else
             echo "runtime_ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           fi
+      - id: plan
+        env: {RELEASE_MODE: "${{ inputs.verified_run != '' && 'native' || inputs.mode }}", RUNTIME_VERSION: '${{ inputs.runtime_version }}', GH_TOKEN: '${{ github.token }}'}
+        run: node own/ci/release-plan.mjs > release-plan.json
+      - uses: actions/upload-artifact@v7
+        with: {name: release-plan, path: release-plan.json}
   qa:
-    if: ${{ inputs.verified_run == '' }}
+    if: ${{ needs.prepare.outputs.mode == 'native' && inputs.verified_run == '' }}
     needs: prepare
     uses: ./.github/workflows/own-build.yml
     with:
       ref: ${{ needs.prepare.outputs.ref }}
+      version: ${{ needs.prepare.outputs.runtime_version }}
+  manager:
+    if: needs.prepare.outputs.mode == 'manager'
+    needs: prepare
+    uses: ./.github/workflows/own-manager.yml
+    with:
+      ref: ${{ needs.prepare.outputs.ref }}
       version: ${{ needs.prepare.outputs.version }}
   publish:
-    needs: [prepare, qa]
-    if: ${{ always() && needs.prepare.result == 'success' && (needs.qa.result == 'success' || (inputs.verified_run != '' && needs.qa.result == 'skipped')) }}
+    needs: [prepare, qa, manager]
+    if: ${{ always() && needs.prepare.result == 'success' && ((needs.prepare.outputs.mode == 'manager' && needs.manager.result == 'success') || (needs.prepare.outputs.mode == 'native' && (needs.qa.result == 'success' || (inputs.verified_run != '' && needs.qa.result == 'skipped')))) }}
     runs-on: ubuntu-latest
     permissions: {contents: write, id-token: write, actions: read}
     steps:
@@ -51,24 +69,35 @@ jobs:
         with: {node-version: '24.15.0', registry-url: 'https://registry.npmjs.org', package-manager-cache: false}
       - run: npm install --global npm@11.18.0
       - run: npm ci --prefix own
-      - uses: actions/download-artifact@v7
+      - name: Check source has not moved
+        env: {SOURCE_REF: '${{ needs.prepare.outputs.ref }}'}
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_REF"
+      - if: needs.prepare.outputs.mode == 'native'
+        uses: actions/download-artifact@v7
         with:
+          pattern: native-*
           path: own/out/verified
           run-id: ${{ inputs.verified_run || github.run_id }}
           github-token: ${{ github.token }}
-      - name: Record registry-verified native payloads
+      - name: Record newly verified native payloads
+        if: needs.prepare.outputs.mode == 'native'
         env:
           EXPECTED_REF: ${{ needs.prepare.outputs.runtime_ref }}
-          SOURCE_REF: ${{ needs.prepare.outputs.ref }}
-          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.runtime_version }}
+          MANAGER_VERSION: ${{ needs.prepare.outputs.version }}
+          NATIVE_RUN: ${{ inputs.verified_run || github.run_id }}
         run: |
-          test "$(git rev-parse HEAD)" = "$SOURCE_REF"
           node own/ci/publish-assets.mjs own/out/verified "$RELEASE_VERSION"
+          node own/ci/record-native.mjs
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add own/release.json own/package.json
+          git add own/release.json own/package.json own/native-release.json
           git commit -m 'chore: record verified native distribution'
           git push origin HEAD:own-main
+      - name: Revalidate ordinary artifact reuse
+        if: needs.prepare.outputs.mode == 'manager'
+        env: {RELEASE_VERSION: '${{ needs.prepare.outputs.version }}', RELEASE_MODE: manager, GH_TOKEN: '${{ github.token }}'}
+        run: node own/ci/release-plan.mjs
       - name: Publish manager through Trusted Publishing
         working-directory: own
         env:

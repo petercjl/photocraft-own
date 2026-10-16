@@ -23,3 +23,11 @@ macOS Apple Silicon and Windows x64 have passed native builds, installation, CLI
 The macOS desktop is ad-hoc signed and is not notarized. The Windows desktop is unsigned. These signing limitations may require operating-system confirmation when launching the desktop.
 
 Development and distribution instructions live in the repository’s `own/dev` directory, outside the npm package. Upstream synchronization uses candidate pull requests and platform checks before promotion.
+
+## Release lifecycle
+
+The npm manager version and immutable native program version are independent. A manager or Skill patch can bind the same verified native release. `update check` reports both update types; unchanged program updates transfer zero native bytes, preserve headless mode and retain the active state and running desktop.
+
+The committed `native-release.json` records the native input fingerprint, classification policy, compatibility contract, original source commit, successful platform QA run, and exact published manifest. Ordinary reuse verifies that proof against npm and GitHub; it does not depend on expiring Actions artifacts. Unknown/native inputs or missing proof require full native QA; explicit manager mode refuses unverified reuse. Both paths verify package installation and real CLI/MCP operations on macOS Apple Silicon and Windows x64.
+
+Publish using npm-release-kit and the committed OIDC workflow. `auto` selects the path; `manager` requires valid reuse; `native` forces a new program version. `runtime_version` can explicitly select the native version independently of the npm manager. `verified_run` is reserved for recovering a failed publication, with successful native QA and unchanged native inputs. The existing content-addressed npm payload transport is retained.

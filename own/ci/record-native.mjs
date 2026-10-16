@@ -1,0 +1,11 @@
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {packageRoot,read,replaceBacked} from '../lib/common.mjs';
+import {identityHash} from '../lib/runtime-identity.mjs';
+import {fingerprint} from './native-inputs.mjs';
+const root=path.resolve(packageRoot,'..'),m=read(path.join(packageRoot,'release.json')),sourceCommit=process.env.EXPECTED_REF,sourceRun=process.env.NATIVE_RUN;
+if(!/^[a-f0-9]{40}$/.test(sourceCommit||'')||!/^\d+$/.test(sourceRun||'')||!process.env.MANAGER_VERSION)throw Error('Missing native source proof');
+execFileSync('git',['merge-base','--is-ancestor',sourceCommit,'HEAD'],{cwd:root});
+const original=fingerprint(root,sourceCommit),current=fingerprint(root);
+if(original.fingerprint!==current.fingerprint)throw Error('Recovery changed native inputs');
+replaceBacked(path.join(packageRoot,'native-release.json'),{schema:1,artifactVersion:m.version,registryVersion:process.env.MANAGER_VERSION,sourceCommit,sourceRun,manifestHash:identityHash(m),...original,compatibility:read(path.join(packageRoot,'capabilities.json')).runtimeCompatibility});

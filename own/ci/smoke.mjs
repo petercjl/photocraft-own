@@ -4,7 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-const cli=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../bin/photocraft-own.mjs');
+const cli=process.env.PHOTOCRAFT_SMOKE_CLI||path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../bin/photocraft-own.mjs');
 const root=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'photocraft-own-smoke-')),work=path.join(root,'images');fs.mkdirSync(work);
 const env={...process.env,PHOTOCRAFT_OWN_HOME:process.env.PHOTOCRAFT_OWN_HOME||path.join(root,'managed')};
 function run(args,input){const p=spawnSync(process.execPath,[cli,...args],{env,encoding:'utf8',input,timeout:120000});if(p.status!==0)throw Error(p.stderr+'\n'+p.stdout);return p.stdout;}

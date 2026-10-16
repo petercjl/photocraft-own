@@ -1,0 +1,61 @@
+name: PhotoCraft Own scoped QA
+on:
+  push:
+    branches: [own-main]
+  pull_request:
+    branches: [own-main]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref: {type: string, required: true}
+      version: {type: string, required: true}
+permissions: {contents: read, actions: read}
+jobs:
+  classify:
+    if: >-
+      ${{ github.event_name != 'push' || github.actor != 'github-actions[bot]' || (!startsWith(github.event.head_commit.message, 'chore: record verified native distribution') && !startsWith(github.event.head_commit.message, 'chore: release own v')) }}
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      runtime_version: ${{ steps.plan.outputs.runtime_version }}
+    steps:
+      - uses: actions/checkout@v6
+        with: {ref: '${{ inputs.ref || github.sha }}', fetch-depth: 0}
+      - uses: actions/setup-node@v6
+        with: {node-version: '24', package-manager-cache: false}
+      - run: npm ci --prefix own
+      - id: plan
+        env: {GH_TOKEN: '${{ github.token }}', CANDIDATE: '${{ inputs.version }}'}
+        run: node own/ci/release-plan.mjs "${CANDIDATE:-$(node own/ci/version.mjs patch)}"
+      - uses: actions/upload-artifact@v7
+        with: {name: 'native-binding-${{ github.run_id }}', path: own/native-release.json}
+  native:
+    needs: classify
+    if: needs.classify.outputs.mode == 'native'
+    uses: ./.github/workflows/own-build.yml
+    with:
+      ref: ${{ inputs.ref || github.sha }}
+      version: ${{ needs.classify.outputs.runtime_version }}
+  manager:
+    needs: classify
+    if: needs.classify.outputs.mode == 'manager'
+    strategy:
+      fail-fast: false
+      matrix: {os: [macos-15, windows-latest]}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run: {shell: bash}
+    steps:
+      - uses: actions/checkout@v6
+        with: {ref: '${{ inputs.ref || github.sha }}', fetch-depth: 0}
+      - uses: actions/setup-node@v6
+        with: {node-version: '24', package-manager-cache: false}
+      - run: npm ci --prefix own
+      - run: npm run check --prefix own && npm test --prefix own
+      - name: Verify pinned published program and package lifecycle
+        run: |
+          node own/ci/prepare-pinned.mjs
+          PHOTOCRAFT_TEST_MANIFEST="$PWD/own/out/pinned/manifest.json" npm test --prefix own
+          node own/ci/smoke.mjs own/out/pinned/manifest.json
+          PHOTOCRAFT_TEST_MANIFEST="$PWD/own/out/pinned/manifest.json" node own/ci/pack-smoke.mjs

@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "artifactVersion": "0.1.1",
+  "registryVersion": "0.1.1",
+  "sourceCommit": "669518e984b460a5feba7b5f64e0daebf1993e40",
+  "sourceRun": "38837291938",
+  "manifestHash": "dacbe5b11d1749d618b15c040397a506511c673dbc0cbfb78be8df5c6ae8b913",
+  "fingerprint": "d82958ff05d2e8a44fafa594f0ec9c1b6c5c7d800a2825e4cb5b94b06436db62",
+  "inputCount": 1651,
+  "policyHash": "1565ce7f4b3e348897ab7c3c3bf30a83dad8866af69d599659ee65c7bf0eaa33",
+  "compatibility": {
+    "managerContract": 1,
+    "nativeContract": 1
+  }
+}

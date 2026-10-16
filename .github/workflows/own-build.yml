@@ -1,10 +1,5 @@
 name: PhotoCraft Own QA
 on:
-  push:
-    branches: [own-main]
-    paths: ['own/**', 'apps/photocraft/**', 'crates/ui-egui/**', '.github/workflows/own-*.yml']
-  pull_request:
-    branches: [own-main]
   workflow_dispatch:
   workflow_call:
     inputs:

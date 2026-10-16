@@ -6,6 +6,7 @@ import {spawn,spawnSync,execFileSync} from 'node:child_process';
 import semver from 'semver';
 import {pkg,packageRoot,ID,platform,paths,fail,read,rejectLinks,exclusive,replaceBacked,locked,requireYes,progress,digest} from './common.mjs';
 import {validateManifest,assetFile,unpack,registryVersion} from './assets.mjs';
+import {runtimeIdentity,updateStatus} from './runtime-identity.mjs';
 
 export function executablePaths(host=platform) {
   return host==='darwin-arm64'?{cli:'bin/photocraft-cli',desktop:'PhotoCraft Own.app/Contents/MacOS/PhotoCraft Own'}:{cli:'bin/photocraft-cli.exe',desktop:'desktop/photocraft-own.exe'};
@@ -50,8 +51,12 @@ export async function install({yes=false,manifest,assetDir,channel='latest',head
   return locked(p,async()=>{
     if(pendingTransactions(p).length)fail('RECOVERY_REQUIRED','Inspect interrupted transactions before activation');
     const current=readState(p);
-    if(current?.version===m.version&&current.buildCommit===v.buildCommit&&(!current.headless||headless)){
-      const active=activeRuntime(p);await verifyRuntime(active.root,active.record,{desktop:!current.headless});return {ok:true,unchanged:true,...current};
+    if(current&&(!current.headless||headless)){
+      const active=activeRuntime(p);
+      if(runtimeIdentity(active.record)===runtimeIdentity({...v,version:m.version,platform})){
+        await verifyRuntime(active.root,active.record,{desktop:!current.headless});
+        return {ok:true,unchanged:true,...current,transfer:[],downloadBytes:0};
+      }
     }
     if(leases(p).some(x=>x.live&&x.kind==='desktop'))fail('APP_RUNNING','Quit PhotoCraft Own before activating an update');
     fs.mkdirSync(p.versions,{recursive:true,mode:0o700});const id=`runtime-${m.version}-${crypto.randomUUID()}`,dest=path.join(p.versions,id),journal=path.join(p.manager,`transaction-${crypto.randomUUID()}.json`);
@@ -69,7 +74,7 @@ export async function install({yes=false,manifest,assetDir,channel='latest',head
       await verifyRuntime(dest,record,{desktop:!headless});
       if(platform==='darwin-arm64'&&!headless)execFileSync('codesign',['--verify','--deep','--strict',path.join(dest,'PhotoCraft Own.app')],{stdio:'pipe'});
       await beforeActivate?.();
-      const next={schema:1,identity:ID,version:m.version,upstreamVersion:v.upstreamVersion,upstreamCommit:v.upstreamCommit,buildCommit:v.buildCommit,active:id,headless,installedAt:new Date().toISOString(),previous:current};
+      const next={schema:1,artifactId:runtimeIdentity(record),identity:ID,version:m.version,upstreamVersion:v.upstreamVersion,upstreamCommit:v.upstreamCommit,buildCommit:v.buildCommit,active:id,headless,installedAt:new Date().toISOString(),previous:current};
       const backup=replaceBacked(p.state,next);activated=true;
       exclusive(journal.replace('.json','.complete.json'),{ok:true,phase:'activated',active:id,backup});
       return {ok:true,...next,runtime:dest,config:p.config,backup,transfer:transfers};
@@ -110,9 +115,12 @@ export async function launch(args=[],p=paths()) {
   exclusive(path.join(p.manager,'sessions',`${crypto.randomUUID()}.json`),{pid:child.pid,kind:'desktop',active:r.state.active,startedAt:new Date().toISOString()});child.unref();
   return {ok:true,pid:child.pid,desktop:path.join(r.root,executablePaths().desktop),config:p.config,log};
 }
-export async function updateCheck({channel='latest',p=paths()}={}) {const latest=await registryVersion(channel),s=readState(p);return {ok:true,managerInstalled:pkg.version,managerAvailable:latest.version,runtimeInstalled:s?.version||null,runtimeAvailable:latest.photocraftOwnManifest?.version||null,available:!s||semver.gt(latest.version,s.version),channel};}
-export async function updateInstall({yes=false,channel='latest',p=paths()}={}) {
-  requireYes(yes);const latest=await registryVersion(channel);
+export async function updateCheck({channel='latest',p=paths(),resolve=registryVersion}={}) {
+  const latest=await resolve(channel),s=readState(p),record=s?activeRuntime(p).record:null;
+  return {ok:true,...updateStatus(pkg.version,latest,record,platform),channel};
+}
+export async function updateInstall({yes=false,channel='latest',p=paths(),resolve=registryVersion}={}) {
+  requireYes(yes);const latest=await resolve(channel);
   if(!latest.photocraftOwnManifest)fail('MANIFEST_UNAVAILABLE','This npm version has no runtime manifest');
-  return install({yes,manifest:latest.photocraftOwnManifest,p});
+  return install({yes,manifest:latest.photocraftOwnManifest,p,headless:readState(p)?.headless??false});
 }
