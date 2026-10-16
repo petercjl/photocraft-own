@@ -19,6 +19,22 @@ const USAGE=`photocraft-own: managed PhotoCraft desktop and Agent image editing
   mcp-config --read-root DIR --write-root DIR [--json]
 Native CLI arguments and engine commands are preserved. MCP/serve stdout is protocol-only.
 `;
+const HELP={
+  skill:`photocraft-own skill: manage the canonical bundled Skill
+  source [--json]
+  status|install|update --agent codex|sealseek [--target-root DIR] [--copy] [--json]
+  register --agent sealseek --target-root DIR --registry FILE --pool-root DIR
+SealSeek requires the Skill root advertised by its host via --target-root.
+`,
+  update:`photocraft-own update: check or install the managed runtime
+  check [--channel latest|next]
+  install [--channel latest|next] --yes
+Update the npm manager first, then the runtime and managed Skill, and run doctor.
+`,
+  install:`photocraft-own install [--headless] [--channel latest|next] [--manifest FILE --asset-dir DIR] --yes
+After npm installation, initialize the native runtime with this command, then install the host Skill and run doctor.
+`,
+};
 function options(args,allowed=[]) {
   const o={};for(let i=0;i<args.length;i++){const k=args[i];if(k==='--json')continue;if(!allowed.includes(k))fail('USAGE',`Unknown option ${k}`);if(['--yes','--headless','--copy','--native'].includes(k))o[k.slice(2)]=true;else{const value=args[++i];if(!value||value.startsWith('--'))fail('USAGE',`${k} requires a value`);o[k.slice(2)]=value;}}return o;
 }
@@ -26,6 +42,7 @@ const args=process.argv.slice(2),command=args.shift();let protocol=['mcp','serve
 function json(value){process.stdout.write(JSON.stringify(value,null,2)+'\n');}
 try {
   if(!command||['help','--help','-h'].includes(command)){process.stdout.write(USAGE);}
+  else if(!['exec','mcp','serve','launch'].includes(command)&&args.some(a=>['--help','-h'].includes(a))){if(!['version','capabilities','doctor','install','rollback','update','skill','mcp-config'].includes(command))fail('USAGE',`Unknown command ${command}`);process.stdout.write(HELP[command]||USAGE);}
   else if(['exec','mcp','serve'].includes(command)){if(args[0]==='--')args.shift();process.exitCode=await runNative(command==='exec'?args:[command,...args],{mode:command});}
   else if(command==='launch'){json(await launch(args));}
   else if(command==='version'){options(args);json({manager:pkg.version,platform,runtime:readState(paths())});}

@@ -36,6 +36,12 @@
     "bridge": "mcp --bridge with native token and scoped filesystem roots"
   },
   "installation": {
+    "lifecycle": {
+      "schema": 1,
+      "initialize": {"args": ["install", "--yes"], "whenDoctorError": "NOT_INSTALLED"},
+      "update": {"args": ["update", "install", "--yes"]},
+      "authorization": "Only during a caller-authorized package install or update; never during status, doctor or image editing"
+    },
     "node": ">=22",
     "rustRequiredForUsers": false,
     "desktop": "precompiled isolated runtime",

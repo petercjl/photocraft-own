@@ -1,11 +1,13 @@
 ---
 name: photocraft-own
-description: Install, update, diagnose and use PhotoCraft Own for local image editing, editable text and adjustment layers, PSD/native projects, and Agent CLI or MCP sessions. Use when the user selects PhotoCraft Own or asks to manage @petercjl/photocraft-own.
+description: Install, update, diagnose and use PhotoCraft Own for local image editing, editable text and adjustment layers, PSD/native projects, and Agent CLI or MCP sessions. Use when the user selects PhotoCraft Own or its short name pc for image editing (for example, 用 pc 调色 or 用 pc 编辑图片), or asks to manage @petercjl/photocraft-own.
 ---
 
 # PhotoCraft Own
 
 ## Contract and responsibility
+
+The user-facing short name is **pc**. Route image-editing requests using this name to PhotoCraft Own. Installation and updates use the npm identity `@petercjl/photocraft-own`; execution uses the stable `photocraft-own` CLI.
 
 Input: an explicit local image operation, input files, desired output, and authorized file scope; or an installation/update request. Output: verified artifacts and their absolute paths, or a structured diagnosis. This capability executes image operations. The calling application owns design choices, prompts, asset selection and visual acceptance.
 
