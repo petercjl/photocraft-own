@@ -1,0 +1,8 @@
+# Verify and report
+
+1. Verify each promised artifact exists at its intended absolute path, has nonzero size and the requested format. Reopen through native `info` or the same session's `doc_open` with read authority; writing authority alone does not grant reopening access. If output lies outside the session read root, use the caller-authorized one-shot inspection or a separately scoped reader.
+2. Compare dimensions and operation-specific properties. For editable text inspect actual Type layers, text content and relevant font/position properties. For adjustment layers inspect their actual kind and parameters. For Smart Objects verify the saved parent, not only an exported contents document. Use current inspection schemas rather than fixed layer indices.
+3. Produce/open a bounded `render_preview` or exported PNG through the advertised host image-view capability. Check the caller's requested change and obvious clipping, placement or missing-content problems. Preserve relevant font/export warnings. Dimensions/layer metadata alone cannot prove appearance or business acceptance.
+4. Deliver paths grouped by editable project and flattened preview, actual operations/parameters, warnings and evidence. If visual inspection is unavailable, say structurally verified / visual review pending. If a required check fails, retain files and return to N3/N4 with the observed mismatch.
+
+MCP preview content can be an image block; display it through the host-supported image path instead of printing base64. Catalog metadata, successful process exit and a nonempty file are useful evidence, each with limited scope. Universal command coverage, Agent routing quality and artistic acceptance require separate tests.

@@ -1,18 +1,10 @@
-# Native editing contract
+# Editing manual entry
 
-Choose `exec` for isolated operations, `serve` for a persistent document session, or `mcp` when the host supports MCP. All three use the same native PhotoCraft CLI. Native CLI help and command schemas are authoritative for the installed version.
+Choose the route for the current main-line node:
 
-Discover: `photocraft-own exec -- --help`, `photocraft-own exec -- commands --json`, and `photocraft-own exec -- commands --json --filter COMMAND`. Confirm syntax in help before using uncertain flags.
+- N2: [choose interface](queries/choose-interface.md).
+- N3: [discover command](queries/discover-command.md), then [edit document](queries/edit-document.md).
+- N4 error/uncertainty: [recover operation](queries/recover-operation.md).
+- N5 before output inspection: [verify output](queries/verify-output.md).
 
-Example isolated editable document:
-
-```sh
-photocraft-own exec -- run --new '{"width":96,"height":64,"background":"#204080"}' --cmd type.create --params '{"x":4,"y":28,"text":"Agent","size":16}' --out NEW_OUTPUT.psd
-photocraft-own exec -- info NEW_OUTPUT.psd --compact
-```
-
-Native argument handling depends on the host shell; pass structured argument arrays when supported, especially on Windows. Never interpolate user text as shell code.
-
-Persistent sessions require `--automation-read-root INPUT_DIR --automation-write-root OUTPUT_DIR`. Prefer separate input/output folders. Obtain a host-ready server definition with `mcp-config --read-root INPUT_DIR --write-root OUTPUT_DIR`; apply it only through the host’s authorized configuration mechanism. A generated definition does not automatically register a server.
-
-Save `.pcraft` or `.psd` when editable layers are required and a separate PNG/JPEG for previews. Inspect actual layer kinds after reopening. Text replacement requires recognized or user-supplied text, positions, suitable fonts and background repair. Color grading uses the installed engine’s adjustment commands; the application chooses artistic intent.
+These routes are the bundled operating manual. Resolve live parameters from the installed CLI/MCP; maintenance API/contributor documents are not required during image work.

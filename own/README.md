@@ -18,13 +18,15 @@ Local operations need no service login. AI services, external fonts, and their l
 
 ## Verification and desktop signing
 
-macOS Apple Silicon and Windows x64 have passed native builds, installation, CLI image editing, MCP, update/rollback, and packed npm entry checks. The macOS desktop has also been visually inspected. Windows desktop interaction and live SealSeek conversation invocation remain unverified.
+macOS Apple Silicon and Windows x64 have passed native builds, installation, CLI image editing, MCP, update/rollback, and packed npm entry checks. The macOS desktop has also been visually inspected. Host mapping, desktop bridge/UI coverage and clean-context Agent routing are separate evidence categories; verify the actual host and operation before claiming them supported by these protocol checks.
 
 The macOS desktop is ad-hoc signed and is not notarized. The Windows desktop is unsigned. These signing limitations may require operating-system confirmation when launching the desktop.
 
 Development and distribution instructions live in the repository’s `own/dev` directory, outside the npm package. Upstream synchronization uses candidate pull requests and platform checks before promotion.
 
 ## Release lifecycle
+
+The canonical [companion Skill](skills/photocraft-own/SKILL.md) is the Agent operating manual for CLI/MCP. Its main line covers probing, surface selection, discovery, execution/recovery and verification; on-demand query routes explain session ownership, scope, batches, fonts and Smart Objects. Runtime use needs the bundled manual and installed-version discovery, rather than contributor/API documents. Applications retain artistic and business decisions.
 
 The npm manager version and immutable native program version are independent. A manager or Skill patch can bind the same verified native release. `update check` reports both update types; unchanged program updates transfer zero native bytes, preserve headless mode and retain the active state and running desktop.
 
