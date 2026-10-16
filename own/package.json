@@ -1,6 +1,6 @@
 {
   "name": "@petercjl/photocraft-own",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Managed PhotoCraft desktop, CLI and MCP image editing for Agents",
   "type": "module",
   "bin": {
