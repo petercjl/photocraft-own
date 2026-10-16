@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import {registerSealSeek} from '../lib/sealseek.mjs';
 import path from 'node:path';
 import {pkg,packageRoot,platform,paths,read,fail} from '../lib/common.mjs';
-import {doctor,install,rollback,launch,runNative,readState,updateCheck,updateInstall} from '../lib/runtime.mjs';
+import {doctor,install,rollback,launch,runNative,readState,updateCheck,updateInstall,startupUpdate,relayUpdatedManager,startupUpdateStatus,setAutoUpdate,syncManagedInstallation} from '../lib/runtime.mjs';
 import {skillStatus,skillInstall,source} from '../lib/skills.mjs';
 
 const USAGE=`photocraft-own: managed PhotoCraft desktop and Agent image editing
@@ -13,6 +13,7 @@ const USAGE=`photocraft-own: managed PhotoCraft desktop and Agent image editing
   exec -- <native photocraft-cli arguments...>
   mcp [native MCP arguments...] | serve [native serve arguments...]
   update check [--channel latest|next] | update install [--channel latest|next] --yes
+  update auto status|enable|disable [--yes] | update sync --yes
   rollback --yes
   skill source | skill register --agent sealseek --target-root DIR --registry FILE --pool-root DIR
   skill status|install|update --agent codex|sealseek [--target-root DIR] [--copy] [--json]
@@ -29,7 +30,10 @@ SealSeek requires the Skill root advertised by its host via --target-root.
   update:`photocraft-own update: check or install the managed runtime
   check [--channel latest|next]
   install [--channel latest|next] --yes
-Update the npm manager first, then the runtime and managed Skill, and run doctor.
+  auto status | auto enable|disable --yes
+  sync --yes (synchronize this manager binding and managed Skills)
+Global npm installs check latest on launch/exec/mcp/serve. Disable with auto disable --yes.
+Manual updates: update npm manager, then runtime and managed Skill, and run doctor.
 `,
   install:`photocraft-own install [--headless] [--channel latest|next] [--manifest FILE --asset-dir DIR] --yes
 After npm installation, initialize the native runtime with this command, then install the host Skill and run doctor.
@@ -40,8 +44,11 @@ function options(args,allowed=[]) {
 }
 const args=process.argv.slice(2),command=args.shift();let protocol=['mcp','serve'].includes(command);
 function json(value){process.stdout.write(JSON.stringify(value,null,2)+'\n');}
+let startup;
 try {
-  if(!command||['help','--help','-h'].includes(command)){process.stdout.write(USAGE);}
+  if(['exec','mcp','serve','launch'].includes(command)&&!args.some(a=>['--help','-h'].includes(a)))startup=await startupUpdate();
+  if(startup?.relaunch)process.exitCode=await relayUpdatedManager(process.argv.slice(2),startup.version);
+  else if(!command||['help','--help','-h'].includes(command)){process.stdout.write(USAGE);}
   else if(!['exec','mcp','serve','launch'].includes(command)&&args.some(a=>['--help','-h'].includes(a))){if(!['version','capabilities','doctor','install','rollback','update','skill','mcp-config'].includes(command))fail('USAGE',`Unknown command ${command}`);process.stdout.write(HELP[command]||USAGE);}
   else if(['exec','mcp','serve'].includes(command)){if(args[0]==='--')args.shift();process.exitCode=await runNative(command==='exec'?args:[command,...args],{mode:command});}
   else if(command==='launch'){json(await launch(args));}
@@ -50,8 +57,15 @@ try {
   else if(command==='doctor'){options(args);const result=await doctor();json(result);if(!result.ok)process.exitCode=1;}
   else if(command==='install'){const o=options(args,['--yes','--headless','--manifest','--asset-dir','--channel']);json(await install({yes:o.yes,headless:o.headless,manifest:o.manifest?read(path.resolve(o.manifest)):undefined,assetDir:o['asset-dir'],channel:o.channel}));}
   else if(command==='rollback'){const o=options(args,['--yes']);json(await rollback({yes:o.yes}));}
-  else if(command==='update'){const action=args.shift(),o=options(args,['--yes','--channel']);if(action==='check')json(await updateCheck(o));else if(action==='install')json(await updateInstall(o));else fail('USAGE','Use update check or update install');}
+  else if(command==='update'){
+    const action=args.shift();
+    if(action==='auto'){const mode=args.shift(),o=options(args,['--yes']);if(mode==='status')json(startupUpdateStatus());else if(['enable','disable'].includes(mode))json(await setAutoUpdate(mode==='enable',o));else fail('USAGE','Use update auto status/enable/disable');}
+    else if(action==='sync'){const o=options(args,['--yes']);if(!o.yes)fail('CONFIRMATION_REQUIRED','Use --yes after authorization');json(await syncManagedInstallation());}
+    else{const o=options(args,['--yes','--channel']);if(action==='check')json(await updateCheck(o));else if(action==='install')json(await updateInstall(o));else fail('USAGE','Use update check/install/auto/sync');}
+  }
   else if(command==='skill'){const action=args.shift(),o=options(args,['--agent','--target-root','--copy','--registry','--pool-root']);const opt={agent:o.agent,targetRoot:o['target-root'],copy:o.copy,registry:o.registry,poolRoot:o['pool-root']};if(action==='source')json({ok:true,source,version:pkg.version});else if(action==='status')json(skillStatus(opt));else if(action==='register')json(await registerSealSeek(opt));else if(['install','update'].includes(action))json(await skillInstall(opt));else fail('USAGE','Use skill source/status/install/update');}
   else if(command==='mcp-config'){const o=options(args,['--read-root','--write-root']);if(!o['read-root']||!o['write-root'])fail('USAGE','Declare both --read-root and --write-root');json({mcpServers:{'photocraft-own':{command:process.execPath,args:[path.join(packageRoot,'bin','photocraft-own.mjs'),'mcp','--automation-read-root',path.resolve(o['read-root']),'--automation-write-root',path.resolve(o['write-root'])]}}});}
   else fail('USAGE',`Unknown command ${command}`);
 }catch(e){const error=JSON.stringify({ok:false,error:{code:e.code||'OPERATION_FAILED',message:e.message,...(e.details?{details:e.details}:{})}},null,2)+'\n';if(protocol)process.stderr.write(error);else process.stdout.write(error);process.exitCode=e.code==='USAGE'?2:1;}
+
+finally {startup?.cleanup();}

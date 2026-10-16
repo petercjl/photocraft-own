@@ -19,7 +19,11 @@
     "skill source",
     "skill status",
     "skill install",
-    "skill update"
+    "skill update",
+    "update auto status",
+    "update auto enable",
+    "update auto disable",
+    "update sync"
   ],
   "platforms": {
     "darwin-arm64": "implemented",
@@ -52,7 +56,7 @@
           "--yes"
         ]
       },
-      "authorization": "Only during a caller-authorized package install or update; never during status, doctor or image editing"
+      "authorization": "Explicit installation/update requests or the configured startup-update policy. Status, version, capabilities, doctor and help remain read-only."
     },
     "node": ">=22",
     "rustRequiredForUsers": false,
@@ -62,10 +66,31 @@
   },
   "updates": {
     "channel": "latest by default; next explicit",
-    "manager": "update the npm package through the Agent",
+    "manager": "Startup auto-update checks latest for global npm installs; npm replacement is backed up and the exact installed entry verified.",
     "runtime": "update install; manifest/hash verification and immutable version directory",
     "skill": "skill update; refuses unmanaged targets and local edits",
-    "rollback": "program state only; user images are not restored or removed"
+    "rollback": "program state only; user images are not restored or removed",
+    "automatic": {
+      "schema": 1,
+      "defaultEnabled": true,
+      "channel": "latest",
+      "triggers": [
+        "launch",
+        "exec",
+        "mcp",
+        "serve"
+      ],
+      "controls": [
+        "update auto status",
+        "update auto enable --yes",
+        "update auto disable --yes"
+      ],
+      "environmentOptOut": "PHOTOCRAFT_OWN_AUTO_UPDATE=0",
+      "scope": "global npm manager, its pinned native runtime and existing managed Skills",
+      "defer": "Any active desktop/CLI/MCP/serve session; concurrent startup updates serialize",
+      "failure": "Registry timeout keeps installed version; failed npm replacement restores backed-up package/entry; local Skill edits remain untouched",
+      "sourceCheckout": "No self-update of development checkouts or non-global installations"
+    }
   },
   "limits": [
     "No built-in OCR is claimed",
@@ -77,7 +102,8 @@
     "install/update write managed program/cache/state directories",
     "launch writes isolated desktop configuration",
     "editing writes caller-selected outputs",
-    "Skill installation writes only the selected host target"
+    "Skill installation writes only the selected host target",
+    "Enabled global startup updates may access npm and replace managed package/runtime/Skill files with backups; image files remain caller-owned."
   ],
   "skillRegistration": {
     "sealseek": {

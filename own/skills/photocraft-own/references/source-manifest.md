@@ -4,6 +4,9 @@ Coverage: partial. Mode: hybrid. Sources accessible at compilation; current manu
 
 Source classes W/U/E/A:
 
+- U: startup automatic updates were explicitly selected; stable global npm startup policy is owned by the manager, with persistent opt-out and running-session deferral.
+- W: the independent npm manager implementation in `own/lib/runtime.mjs` and `own/bin/photocraft-own.mjs` owns this lifecycle; upstream engine/interface sources below do not define manager update policy.
+- E: startup-update iteration passed 34 tests and real packed npm/native operations on macOS, including actual manager/Skill update and real-entry rollback. Windows execution is a separate required release gate.
 - U: canonical portable Skill is the Agent's CLI/MCP operating manual; CLI/MCP execute explicit operations, applications own business/art decisions. Keep one npm-bundled source for Codex and SealSeek.
 - W: upstream PhotoCraft revision `706638b2842a330cfc5c305c7860d0b7c9921960`, [MCP conventions](https://github.com/storytold/photocraft/blob/706638b2842a330cfc5c305c7860d0b7c9921960/docs/mcp.md), automation CLI/security docs and `crates/automation/src/{server.rs,headless.rs}` in the pinned source.
 - E: native 0.1.1 and manager 0.1.2 release gates include actual CLI editable PSD, serve adjustment/export, MCP operations and path rejection on supported OSes. Exact results belong in repository CI/development evidence; they are not universal host validation.

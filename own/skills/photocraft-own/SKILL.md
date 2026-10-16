@@ -21,7 +21,9 @@ This npm package's bundled Skill is the source of truth: `photocraft-own skill s
 
 Resolve the current Agent's mapping in `adapters/` and logical `command.execute` against advertised host tools. It must support argv, stdio, exit status and local files. If absent, return `CAPABILITY_UNAVAILABLE`; never invent a tool. Probe `photocraft-own version`, `capabilities` and `doctor --json`. Manager installation and native installation are separate states.
 
-Installation, update or diagnostic request: enter [manage installation](references/queries/manage-installation.md), execute only the authorized lifecycle operation, verify the entry and managed Skill, then return to N1. Ordinary image requests do not update software.
+Installation, update or diagnostic request: enter [manage installation](references/queries/manage-installation.md), execute only the authorized lifecycle operation, verify the entry and managed Skill, then return to N1.
+
+Global npm installations apply the configured startup-update policy before launch/exec/mcp/serve; status, probes and help stay read-only. See lifecycle for controls and failure behavior.
 
 ### N2 — Choose execution surface and authority
 
@@ -29,7 +31,7 @@ Determine whether the input is a file, a persistent headless document or the use
 
 ### N3 — Discover and inspect before editing
 
-Enter [discover command](references/queries/discover-command.md), then [edit document](references/queries/edit-document.md) for the requested operation. Load these routes before analyzing the input. Inspect paths, dimensions, document/layer identity and relevant current state; preserve existing destinations with a new filename or a verified backup. Obtain current IDs and parameter docs from live discovery. Record a bounded operation and output plan. If inputs are missing, clarify only what cannot be inferred safely.
+Enter [discover command](references/queries/discover-command.md), then [edit document](references/queries/edit-document.md) for the requested operation. Load these routes before analyzing the input. Inspect paths, dimensions, document/layer identity and relevant current state; preserve existing destinations with a new filename or a verified backup. Obtain current IDs and parameter docs from live discovery. If startup updated the manager, resolve and load its current canonical Skill, then refresh the relevant discovery before editing. Record a bounded operation and output plan. If inputs are missing, clarify only what cannot be inferred safely.
 
 ### N4 — Execute and track effects
 

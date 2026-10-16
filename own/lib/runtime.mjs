@@ -7,6 +7,7 @@ import semver from 'semver';
 import {pkg,packageRoot,ID,platform,paths,fail,read,rejectLinks,exclusive,replaceBacked,locked,requireYes,progress,digest} from './common.mjs';
 import {validateManifest,assetFile,unpack,registryVersion} from './assets.mjs';
 import {runtimeIdentity,updateStatus} from './runtime-identity.mjs';
+import {skillInstall} from './skills.mjs';
 
 export function executablePaths(host=platform) {
   return host==='darwin-arm64'?{cli:'bin/photocraft-cli',desktop:'PhotoCraft Own.app/Contents/MacOS/PhotoCraft Own'}:{cli:'bin/photocraft-cli.exe',desktop:'desktop/photocraft-own.exe'};
@@ -90,13 +91,14 @@ export async function rollback({yes=false,p=paths()}={}) {
   });
 }
 export async function doctor(p=paths()) {
-  const errors=[];let runtime=null,nativeVersion=null,sessions=[];
+  const errors=[];let runtime=null,nativeVersion=null,sessions=[],startupUpdateState=null;
   try{runtime=activeRuntime(p);nativeVersion=await verifyRuntime(runtime.root,runtime.record,{desktop:!runtime.state.headless});}catch(e){errors.push({code:e.code||'INVALID_RUNTIME',message:e.message});}
   try{sessions=leases(p);}catch(e){errors.push({code:'INVALID_SESSION',message:e.message});}
+  try{startupUpdateState=startupUpdateStatus(p);if(startupUpdateState.lock)errors.push({code:live(startupUpdateState.lock.pid)?'BUSY':'RECOVERY_REQUIRED',message:'Inspect the startup update lock before another update'});}catch(e){errors.push({code:e.code||'INVALID_UPDATE_POLICY',message:e.message});}
   const pending=pendingTransactions(p);
   if(fs.existsSync(p.lock))errors.push({code:'BUSY',message:'Managed operation lock exists'});
   if(pending.length)errors.push({code:'RECOVERY_REQUIRED',message:'Inspect interrupted transaction records before another install'});
-  return {ok:errors.length===0,managerVersion:pkg.version,platform,supported:['darwin-arm64','win32-x64'].includes(platform),installed:runtime?.state||null,nativeVersion,paths:p,lock:fs.existsSync(p.lock),pendingTransactions:pending,sessions,errors};
+  return {ok:errors.length===0,managerVersion:pkg.version,platform,supported:['darwin-arm64','win32-x64'].includes(platform),installed:runtime?.state||null,nativeVersion,paths:p,lock:fs.existsSync(p.lock),pendingTransactions:pending,sessions,startupUpdate:startupUpdateState,errors};
 }
 export async function runNative(args,{mode='exec',p=paths()}={}) {
   const r=activeRuntime(p);await verifyRuntime(r.root,r.record,{desktop:false});
@@ -123,4 +125,167 @@ export async function updateInstall({yes=false,channel='latest',p=paths(),resolv
   requireYes(yes);const latest=await resolve(channel);
   if(!latest.photocraftOwnManifest)fail('MANIFEST_UNAVAILABLE','This npm version has no runtime manifest');
   return install({yes,manifest:latest.photocraftOwnManifest,p,headless:readState(p)?.headless??false});
+}
+
+// Startup updates belong to the manager. Native executables and protocol bytes are unchanged.
+export function autoUpdatePolicy(p=paths()) {
+  const file=path.join(p.config,'startup-update.json');rejectLinks(file);
+  const policy=fs.existsSync(file)?read(file):{schema:1,enabled:true,channel:'latest'};
+  if(policy.schema!==1||typeof policy.enabled!=='boolean'||policy.channel!=='latest')fail('INVALID_UPDATE_POLICY','Inspect startup update configuration');
+  return policy;
+}
+export async function setAutoUpdate(enabled,{yes=false,p=paths()}={}) {
+  requireYes(yes);return locked(p,async()=>{
+    const policy={...autoUpdatePolicy(p),enabled};
+    const backup=replaceBacked(path.join(p.config,'startup-update.json'),policy);
+    return {ok:true,...policy,backup};
+  });
+}
+export function globalManagerPrefix(root=packageRoot,host=process.platform) {
+  const prefix=path.resolve(root,host==='win32'?'../../..':'../../../..');
+  const expected=path.join(prefix,...(host==='win32'?[]:['lib']),'node_modules','@petercjl','photocraft-own');
+  if(path.resolve(root)!==expected)return null;
+  const shim=path.join(prefix,host==='win32'?'photocraft-own.cmd':'bin/photocraft-own');
+  if(!fs.existsSync(shim))return null;
+  if(host==='win32')return fs.readFileSync(shim,'utf8').includes('photocraft-own.mjs')?prefix:null;
+  return fs.realpathSync(shim)===fs.realpathSync(path.join(root,'bin/photocraft-own.mjs'))?prefix:null;
+}
+export function startupUpdateStatus(p=paths()) {
+  const lock=path.join(p.manager,'startup-update.lock');
+  return {ok:true,...autoUpdatePolicy(p),trigger:['launch','exec','mcp','serve'],globalInstall:globalManagerPrefix()!==null,environmentDisabled:process.env.PHOTOCRAFT_OWN_AUTO_UPDATE==='0',lock:fs.existsSync(lock)?{path:lock,...read(lock)}:null};
+}
+export function resolveNpmCLI() {
+  const candidates=[process.env.npm_execpath,path.join(path.dirname(process.execPath),'node_modules/npm/bin/npm-cli.js')];
+  for(const dir of (process.env.PATH||'').split(path.delimiter))candidates.push(path.join(dir,'npm'));
+  for(const candidate of candidates.filter(Boolean)){
+    try{const file=fs.realpathSync(candidate);if(file.endsWith(path.join('npm','bin','npm-cli.js'))&&fs.statSync(file).isFile())return file;}catch{}
+  }
+  fail('NPM_UNAVAILABLE','A verified npm CLI is required for manager updates');
+}
+export async function runManagerProcess(executable,args,options={}) {
+  return new Promise((resolve,reject)=>{
+    const child=spawn(executable,args,{...options,stdio:['ignore','pipe','pipe']});let stdout='',stderr='';
+    child.stdout.on('data',b=>{stdout+=b;});child.stderr.on('data',b=>{stderr+=b;});
+    let cancelled=null;const signals=['SIGINT','SIGTERM'];
+    const handlers=signals.map(signal=>()=>{cancelled=signal;try{child.kill(signal);}catch{child.kill('SIGTERM');}});
+    const cleanup=()=>signals.forEach((signal,i)=>process.removeListener(signal,handlers[i]));
+    signals.forEach((signal,i)=>process.on(signal,handlers[i]));
+    child.once('error',error=>{cleanup();reject(error);});child.once('close',(code,signal)=>{
+      cleanup();
+      if(cancelled)reject(Object.assign(Error('Startup update cancelled; preserve the previous installation'),{code:'UPDATE_CANCELLED',startupBlocked:true,exitCode:cancelled==='SIGINT'?130:143}));
+      else if(code!==0)reject(Object.assign(Error(stderr.trim()||`Update process failed (${code??signal})`),{code:'UPDATE_PROCESS_FAILED'}));
+      else resolve({stdout,stderr});
+    });
+  });
+}
+export async function syncManagedInstallation({p=paths(),manifest=read(path.join(packageRoot,'release.json')),installRuntime=install,installSkill=skillInstall}={}) {
+  const state=readState(p),warnings=[];
+  const runtime=state?await installRuntime({yes:true,p,manifest,headless:state.headless}):{skipped:'NOT_INSTALLED'};
+  const skills=[],dir=path.join(p.manager,'skills');
+  if(fs.existsSync(dir))for(const name of fs.readdirSync(dir).filter(n=>n.endsWith('.json'))){
+    const file=path.join(dir,name);rejectLinks(file);const record=read(file);
+    if(record.package!==pkg.name||typeof record.target!=='string'||path.basename(record.target)!=='photocraft-own')continue;
+    if(!fs.existsSync(record.target))continue; // An intentionally removed target is not re-created.
+    try{const result=await installSkill({agent:'codex',targetRoot:path.dirname(record.target),copy:record.mode==='copy'},p);skills.push({target:result.target,current:result.current,unchanged:result.unchanged||false});}
+    catch(e){warnings.push({code:e.code||'SKILL_UPDATE_FAILED',target:record.target,message:e.message});}
+  }
+  return {ok:true,runtime,skills,warnings};
+}
+export async function updateGlobalManager(version,{p=paths(),root=packageRoot,prefix=globalManagerPrefix(root),run=runManagerProcess}={}) {
+  if(!prefix||!semver.valid(version)||semver.prerelease(version))fail('UNSUPPORTED_MANAGER_UPDATE','Startup updates require an installed global stable npm package');
+  const npm=resolveNpmCLI(),entry=path.join(root,'bin/photocraft-own.mjs');
+  const backup=await locked(p,async()=>{
+    const base=path.join(p.manager,'manager-backups',crypto.randomUUID());fs.mkdirSync(base,{recursive:true,mode:0o700});
+    // Back up package bytes (including nested global dependencies) and all existing npm shims.
+    rejectLinks(root);fs.statSync(root);fs.cpSync(root,path.join(base,'package'),{recursive:true,errorOnExist:true,force:false});
+    const shimDir=process.platform==='win32'?prefix:path.join(prefix,'bin');
+    const names=process.platform==='win32'?['photocraft-own','photocraft-own.cmd','photocraft-own.ps1']:['photocraft-own'];
+    const shims=names.filter(n=>fs.existsSync(path.join(shimDir,n))).map(name=>{
+      const file=path.join(shimDir,name),stat=fs.lstatSync(file);
+      if(stat.isSymbolicLink())return {name,type:'link',target:fs.readlinkSync(file)};
+      if(!stat.isFile())fail('UNSAFE_PATH','npm shim must be a file or symbolic link');
+      fs.copyFileSync(file,path.join(base,name),fs.constants.COPYFILE_EXCL);
+      return {name,type:'file',mode:stat.mode&0o777};
+    });
+    exclusive(path.join(base,'receipt.json'),{schema:1,package:pkg.name,previous:read(path.join(root,'package.json')).version,version,root,prefix,shims});
+    const restore=()=>{
+      if(fs.existsSync(root))fs.renameSync(root,path.join(path.dirname(root),`.photocraft-own-failed-${crypto.randomUUID()}`));
+      fs.cpSync(path.join(base,'package'),root,{recursive:true,errorOnExist:true,force:false});
+      for(const shim of shims){
+        const file=path.join(shimDir,shim.name);try{fs.lstatSync(file);fs.unlinkSync(file);}catch(e){if(e.code!=='ENOENT')throw e;}
+        if(shim.type==='link')fs.symlinkSync(shim.target,file,'file');
+        else{fs.copyFileSync(path.join(base,shim.name),file,fs.constants.COPYFILE_EXCL);fs.chmodSync(file,shim.mode);}
+      }
+    };
+    try{
+      await run(process.execPath,[npm,'install','--global','--prefix',prefix,'--ignore-scripts','--no-audit','--no-fund','--registry','https://registry.npmjs.org','--@petercjl:registry=https://registry.npmjs.org',`${pkg.name}@${version}`],{timeout:180000,env:process.env});
+      const probe=await run(process.execPath,[entry,'version'],{timeout:30000,env:{...process.env,PHOTOCRAFT_OWN_HOME:p.root}});
+      if(JSON.parse(probe.stdout).manager!==version)fail('VERSION_MISMATCH','Updated manager entry reports a different version');
+    }catch(e){
+      try{restore();const probe=await run(process.execPath,[entry,'version'],{timeout:30000,env:{...process.env,PHOTOCRAFT_OWN_HOME:p.root}});if(JSON.parse(probe.stdout).manager!==read(path.join(base,'receipt.json')).previous)throw Error('Restored entry version mismatch');}
+      catch(recovery){throw Object.assign(Error(`Manager rollback requires inspection: ${base}; ${recovery.message}`),{code:'RECOVERY_REQUIRED',startupBlocked:true});}
+      throw e;
+    }
+    return base;
+  });
+  // Load the new package's binding and Skill code in a fresh process.
+  const result=await run(process.execPath,[entry,'update','sync','--yes'],{timeout:300000,env:{...process.env,PHOTOCRAFT_OWN_HOME:p.root}});
+  return {ok:true,version,backup,sync:JSON.parse(result.stdout)};
+}
+async function startupRegistry() {
+  const response=await fetch('https://registry.npmjs.org/@petercjl%2fphotocraft-own/latest',{signal:AbortSignal.timeout(5000),redirect:'error'});
+  if(!response.ok)fail('REGISTRY_UNAVAILABLE',`npm registry HTTP ${response.status}`);
+  const latest=await response.json();if(latest.name!==pkg.name||!semver.valid(latest.version)||semver.prerelease(latest.version))fail('INVALID_MANIFEST','Startup updates require a stable package identity');
+  return latest;
+}
+export async function startupUpdate({p=paths(),root=packageRoot,managerVersion=pkg.version,prefix=globalManagerPrefix(root),resolve=startupRegistry,updateManager=updateGlobalManager,sync=syncManagedInstallation,sessionList=leases,log=progress,lockWaitMs=180000,environment=process.env}={}) {
+  const noop=()=>{};
+  if(environment.PHOTOCRAFT_OWN_AUTO_UPDATE==='0'||environment.PHOTOCRAFT_OWN_AUTO_REENTRY===managerVersion)return {skipped:'disabled-or-reentry',cleanup:noop};
+  if(!prefix)return {skipped:'non-global-install',cleanup:noop};
+  let fd,lease;const lock=path.join(p.manager,'startup-update.lock'),nonce=crypto.randomUUID();
+  const cleanup=()=>{if(lease&&fs.existsSync(lease))fs.unlinkSync(lease);};
+  try{
+    if(!autoUpdatePolicy(p).enabled)return {skipped:'disabled',cleanup:noop};
+    fs.mkdirSync(p.manager,{recursive:true,mode:0o700});
+    const deadline=Date.now()+lockWaitMs;
+    while(fd===undefined){
+      try{fd=fs.openSync(lock,'wx',0o600);fs.writeSync(fd,JSON.stringify({schema:1,pid:process.pid,startedAt:new Date().toISOString()}));}
+      catch(e){
+        if(e.code!=='EEXIST')throw e;
+        rejectLinks(lock);const prior=read(lock);
+        if(!live(prior.pid))throw Object.assign(Error('Interrupted startup-update lock; inspect update auto status before recovery'),{code:'RECOVERY_REQUIRED',startupBlocked:true});
+        if(Date.now()>=deadline)throw Object.assign(Error('Another startup update is still active; retry after it completes'),{code:'BUSY',startupBlocked:true});
+        await new Promise(r=>setTimeout(r,100));
+      }
+    }
+    lease=path.join(p.manager,'sessions',`startup-${nonce}.json`);
+    exclusive(lease,{pid:process.pid,kind:'startup',nonce,startedAt:new Date().toISOString()});
+    const diskVersion=read(path.join(root,'package.json')).version;
+    if(diskVersion!==managerVersion)return {relaunch:true,version:diskVersion,cleanup};
+    if(sessionList(p).some(s=>s.live&&s.nonce!==nonce))return {skipped:'active-session',cleanup};
+    if(!readState(p))return {skipped:'NOT_INSTALLED',cleanup};
+    const latest=await resolve();validateManifest(latest.photocraftOwnManifest,platform);
+    if(semver.gt(latest.version,managerVersion)){
+      log(`startup update ${managerVersion} -> ${latest.version}`);
+      const result=await updateManager(latest.version,{p,root,prefix});
+      for(const warning of result.sync?.warnings||[])log(`startup update warning ${warning.code}: ${warning.message}`);
+      return {relaunch:true,version:latest.version,result,cleanup};
+    }
+    // Never downgrade an installed package or use another version's unbounded runtime binding.
+    const result=await sync({p});for(const warning of result.warnings||[])log(`startup update warning ${warning.code}: ${warning.message}`);
+    return {ok:true,result,cleanup};
+  }catch(e){
+    log(`startup update ${e.code||'UNAVAILABLE'}: ${e.message}; retaining the installed version`);
+    if(e.startupBlocked){cleanup();throw e;}
+    // A successful npm replacement can precede a failed native/Skill synchronization.
+    try{const version=read(path.join(root,'package.json')).version;if(version!==managerVersion)return {relaunch:true,version,warning:e.code||'UPDATE_FAILED',cleanup};}catch{}
+    return {warning:e.code||'UPDATE_FAILED',cleanup};
+  }finally{if(fd!==undefined){fs.closeSync(fd);fs.unlinkSync(lock);}}
+}
+export async function relayUpdatedManager(args,version,p=paths()) {
+  const child=spawn(process.execPath,[path.join(packageRoot,'bin/photocraft-own.mjs'),...args],{stdio:'inherit',env:{...process.env,PHOTOCRAFT_OWN_HOME:p.root,PHOTOCRAFT_OWN_AUTO_REENTRY:version}});
+  const signals=['SIGINT','SIGTERM'],handlers=signals.map(signal=>()=>{if(child.pid&&!child.killed)child.kill(signal);});
+  signals.forEach((signal,i)=>process.on(signal,handlers[i]));
+  try{return await new Promise((resolve,reject)=>{child.once('error',reject);child.once('exit',(code,signal)=>resolve(code??(signal==='SIGINT'?130:143)));});}
+  finally{signals.forEach((signal,i)=>process.removeListener(signal,handlers[i]));}
 }

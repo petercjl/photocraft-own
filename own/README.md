@@ -16,6 +16,8 @@ Troubleshooting: “请检查 pc 的安装和运行状态。”
 
 Local operations need no service login. AI services, external fonts, and their licenses are separate. Installation grants no file access or service access. MCP sessions explicitly scope input and output directories. Existing images are preserved unless their replacement is explicitly authorized.
 
+Global npm installs check stable updates when the desktop or CLI/MCP/serve starts. The package updates its npm manager, pinned native program and existing managed Skills; running sessions defer updates, and offline checks preserve the installed version. Disable or re-enable this through an Agent: “请关闭 pc 的启动自动更新。” / “请开启 pc 的启动自动更新。” Development checkouts and non-global installations do not self-update.
+
 ## Verification and desktop signing
 
 macOS Apple Silicon and Windows x64 have passed native builds, installation, CLI image editing, MCP, update/rollback, and packed npm entry checks. The macOS desktop has also been visually inspected. Host mapping, desktop bridge/UI coverage and clean-context Agent routing are separate evidence categories; verify the actual host and operation before claiming them supported by these protocol checks.
