@@ -166,9 +166,13 @@ export async function runManagerProcess(executable,args,options={}) {
   return new Promise((resolve,reject)=>{
     const child=spawn(executable,args,{...options,stdio:['ignore','pipe','pipe']});let stdout='',stderr='';
     child.stdout.on('data',b=>{stdout+=b;});child.stderr.on('data',b=>{stderr+=b;});
-    let cancelled=null;const signals=['SIGINT','SIGTERM'];
-    const handlers=signals.map(signal=>()=>{cancelled=signal;try{child.kill(signal);}catch{child.kill('SIGTERM');}});
-    const cleanup=()=>signals.forEach((signal,i)=>process.removeListener(signal,handlers[i]));
+    let cancelled=null,killTimer;const signals=['SIGINT','SIGTERM'];
+    const handlers=signals.map(signal=>()=>{
+      cancelled=signal;try{child.kill(signal);}catch{child.kill('SIGTERM');}
+      // A signal delivered during exec/bootstrap can be lost or ignored. Bound cancellation.
+      if(!killTimer){killTimer=setTimeout(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');},1000);killTimer.unref();}
+    });
+    const cleanup=()=>{clearTimeout(killTimer);signals.forEach((signal,i)=>process.removeListener(signal,handlers[i]));};
     signals.forEach((signal,i)=>process.on(signal,handlers[i]));
     child.once('error',error=>{cleanup();reject(error);});child.once('close',(code,signal)=>{
       cleanup();
@@ -238,7 +242,7 @@ async function startupRegistry() {
   const latest=await response.json();if(latest.name!==pkg.name||!semver.valid(latest.version)||semver.prerelease(latest.version))fail('INVALID_MANIFEST','Startup updates require a stable package identity');
   return latest;
 }
-export async function startupUpdate({p=paths(),root=packageRoot,managerVersion=pkg.version,prefix=globalManagerPrefix(root),resolve=startupRegistry,updateManager=updateGlobalManager,sync=syncManagedInstallation,sessionList=leases,log=progress,lockWaitMs=180000,environment=process.env}={}) {
+export async function startupUpdate({p=paths(),root=packageRoot,managerVersion=pkg.version,host=platform,prefix=globalManagerPrefix(root),resolve=startupRegistry,updateManager=updateGlobalManager,sync=syncManagedInstallation,sessionList=leases,log=progress,lockWaitMs=180000,environment=process.env}={}) {
   const noop=()=>{};
   if(environment.PHOTOCRAFT_OWN_AUTO_UPDATE==='0'||environment.PHOTOCRAFT_OWN_AUTO_REENTRY===managerVersion)return {skipped:'disabled-or-reentry',cleanup:noop};
   if(!prefix)return {skipped:'non-global-install',cleanup:noop};
@@ -264,7 +268,7 @@ export async function startupUpdate({p=paths(),root=packageRoot,managerVersion=p
     if(diskVersion!==managerVersion)return {relaunch:true,version:diskVersion,cleanup};
     if(sessionList(p).some(s=>s.live&&s.nonce!==nonce))return {skipped:'active-session',cleanup};
     if(!readState(p))return {skipped:'NOT_INSTALLED',cleanup};
-    const latest=await resolve();validateManifest(latest.photocraftOwnManifest,platform);
+    const latest=await resolve();validateManifest(latest.photocraftOwnManifest,host);
     if(semver.gt(latest.version,managerVersion)){
       log(`startup update ${managerVersion} -> ${latest.version}`);
       const result=await updateManager(latest.version,{p,root,prefix});

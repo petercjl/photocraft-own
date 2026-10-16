@@ -17,3 +17,7 @@ A startup lock serializes updaters. Operation leases retain managed activity acr
 - The same tests, packed native smoke and real npm update fixture run in the existing macOS/Windows release workflow before publication. Windows results are pending at this pre-release checkpoint; inspect the authorized release run for final status.
 
 No background scheduler, cloud credentials or new Agent-host capability is required. No independent clean-context routing or new desktop visual validation was run. Native build-input fingerprint remains the existing 0.1.1 binding; release planning must verify it again before dispatch. Backups, logs and test fixtures are excluded from npm distribution.
+
+## First CI checkpoint
+
+The scoped macOS/Windows run 38865575119 passed full tests, real npm update/rollback and packed native smoke. Release prepare on Linux was cancelled before publication: a simulated concurrency fixture used the unsupported Linux native host and waited for a branch that had already returned. Fixtures now select the intended simulated host and race completion against branch entry, with bounded waits; unsupported-host return has its own test. Startup child cancellation also has a bounded force-stop fallback. The same intended release version is retained; no publication occurred in that cancelled run.

@@ -16,7 +16,7 @@ function fixture(){
  const shim=path.join(prefix,process.platform==='win32'?'photocraft-own.cmd':'bin/photocraft-own');fs.mkdirSync(path.dirname(shim),{recursive:true});
  if(process.platform==='win32')exclusive(shim,'node photocraft-own.mjs');else fs.symlinkSync(path.join(root,'bin/photocraft-own.mjs'),shim);
  const p=paths({root:path.join(base,'managed')});exclusive(p.state,{identity:ID,version:manifest.version,active:'runtime-fixture',headless:true});
- const logs=[],options={p,root,prefix,environment:{},log:m=>logs.push(m),resolve:async()=>({name:pkg.name,version:pkg.version,photocraftOwnManifest:manifest}),sync:async()=>({ok:true,warnings:[]})};
+ const logs=[],options={p,root,prefix,host:'darwin-arm64',environment:{},log:m=>logs.push(m),resolve:async()=>({name:pkg.name,version:pkg.version,photocraftOwnManifest:manifest}),sync:async()=>({ok:true,warnings:[]})};
  return {base,p,root,prefix,shim,logs,options};
 }
 test('global startup eligibility excludes source/non-global trees; controls are persistent and backed up',async()=>{
@@ -48,9 +48,9 @@ test('new stable manager synchronizes then requests one fresh-entry handoff; ins
  assert.equal(synced,1);assert.equal(same.ok,true);same.cleanup();
  const skip=await startupUpdate({...f.options,environment:{PHOTOCRAFT_OWN_AUTO_REENTRY:pkg.version}});assert.equal(skip.skipped,'disabled-or-reentry');
 });
-test('concurrent startup waits for updater then defers against retained operation lease',async()=>{
+test('concurrent startup waits for updater then defers against retained operation lease',{timeout:5000},async()=>{
  const f=fixture();let release,entered;const ready=new Promise(r=>entered=r),gate=new Promise(r=>release=r);
- const first=startupUpdate({...f.options,sync:async()=>{entered();await gate;return {warnings:[]};}});await ready;
+ const first=startupUpdate({...f.options,sync:async()=>{entered();await gate;return {warnings:[]};}});await Promise.race([ready,first.then(()=>{throw Error('Startup returned before entering synchronization');})]);
  let finished=false;const second=startupUpdate({...f.options,lockWaitMs:1000}).then(r=>{finished=true;return r;});
  await new Promise(r=>setTimeout(r,25));assert.equal(finished,false);release();const a=await first,b=await second;
  assert.equal(b.skipped,'active-session');a.cleanup();b.cleanup();assert.equal(leases(f.p).length,0);
@@ -122,10 +122,16 @@ test('real npm startup upgrade preserves the native identity, synchronizes copie
  assert.equal(cli(['version']).manager,'99.0.0');assert.equal(globalManagerPrefix(root),prefix);assert.ok(fs.readFileSync(p.state).equals(state));
 });
 
-test('cancelling a manager child stops dispatch and removes signal handlers',async()=>{
+test('cancelling a manager child stops dispatch and removes signal handlers',{timeout:5000},async()=>{
  const counts=['SIGINT','SIGTERM'].map(s=>process.listenerCount(s));
  const child=runManagerProcess(process.execPath,['-e','setInterval(()=>{},1000)']);
  assert.equal(process.listenerCount('SIGTERM'),counts[1]+1);process.emit('SIGTERM');
  await assert.rejects(child,e=>e.code==='UPDATE_CANCELLED'&&e.startupBlocked&&e.exitCode===143);
  assert.deepEqual(['SIGINT','SIGTERM'].map(s=>process.listenerCount(s)),counts);
+});
+
+test('unsupported native host returns promptly without entering synchronization',async()=>{
+ const f=fixture();let synced=false;
+ const result=await startupUpdate({...f.options,host:'linux-x64',sync:async()=>{synced=true;throw Error('unsupported');}});
+ assert.equal(result.warning,'PLATFORM_UNAVAILABLE');assert.equal(synced,false);assert.equal(fs.existsSync(path.join(f.p.manager,'startup-update.lock')),false);result.cleanup();
 });
